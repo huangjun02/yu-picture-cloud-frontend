@@ -1,14 +1,6 @@
 <template>
   <div class="login-page">
     <a-card class="login-card" title="云图库 · 用户登录">
-      <a-alert
-        type="info"
-        show-icon
-        style="margin-bottom: 16px"
-        message="接口尚未实现"
-        description="页面已按第 3 期的 POST /api/user/login 约定好参数，后端接口落地后即可直接登录。"
-      />
-
       <a-form
         ref="formRef"
         :model="formState"
@@ -34,7 +26,8 @@
 
       <a-divider style="margin: 8px 0" />
       <a-typography-text type="secondary">
-        还没有账号？<a-typography-link @click="goRegister">去注册</a-typography-link>（注册页在第 3 期）
+        本地联调账号：<a-typography-text code>huangjun</a-typography-text> /
+        <a-typography-text code>12345678</a-typography-text>
       </a-typography-text>
     </a-card>
   </div>
@@ -46,9 +39,11 @@ import { useRouter } from 'vue-router'
 import { message, type FormInstance } from 'ant-design-vue'
 import type { Rule } from 'ant-design-vue/es/form'
 
-import { login, type LoginParams } from '@/api/user'
+import type { LoginParams } from '@/api/user'
+import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
+const userStore = useUserStore()
 const formRef = ref<FormInstance>()
 const submitting = ref(false)
 
@@ -74,14 +69,10 @@ function fillDemo() {
   formState.userPassword = '12345678'
 }
 
-function goRegister() {
-  message.info('注册页还没做，等第 3 期')
-}
-
 async function handleSubmit() {
   submitting.value = true
   try {
-    const vo = await login(formState)
+    const vo = await userStore.login(formState)
     message.success(`登录成功：${vo.userName ?? vo.userAccount}`)
     await router.push('/')
   } catch {
