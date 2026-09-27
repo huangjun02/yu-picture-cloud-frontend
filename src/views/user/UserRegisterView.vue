@@ -1,34 +1,62 @@
 <template>
-  <div class="register-page">
-    <a-card class="register-card" title="云图库 · 用户注册">
-      <a-form
-        ref="formRef"
-        :model="formState"
-        :rules="rules"
-        layout="vertical"
-        @finish="handleSubmit"
+  <AuthShell title="创建账号" subtitle="注册后即可拥有自己的图片空间">
+    <a-form
+      ref="formRef"
+      :model="formState"
+      :rules="rules"
+      layout="vertical"
+      @finish="handleSubmit"
+    >
+      <a-form-item label="账号" name="userAccount">
+        <a-input
+          v-model:value="formState.userAccount"
+          size="large"
+          placeholder="4-20 位，不含特殊字符"
+          allow-clear
+        >
+          <template #prefix><UserOutlined /></template>
+        </a-input>
+      </a-form-item>
+
+      <a-form-item label="密码" name="userPassword">
+        <a-input-password
+          v-model:value="formState.userPassword"
+          size="large"
+          placeholder="至少 8 位"
+        >
+          <template #prefix><LockOutlined /></template>
+        </a-input-password>
+      </a-form-item>
+
+      <a-form-item label="确认密码" name="checkPassword">
+        <a-input-password
+          v-model:value="formState.checkPassword"
+          size="large"
+          placeholder="再输入一次密码"
+        >
+          <template #prefix><SafetyOutlined /></template>
+        </a-input-password>
+      </a-form-item>
+
+      <a-button
+        type="primary"
+        size="large"
+        block
+        html-type="submit"
+        :loading="submitting"
+        class="submit-btn"
       >
-        <a-form-item label="账号" name="userAccount">
-          <a-input v-model:value="formState.userAccount" placeholder="4-20 位，不含特殊字符" allow-clear />
-        </a-form-item>
+        注册
+      </a-button>
+    </a-form>
 
-        <a-form-item label="密码" name="userPassword">
-          <a-input-password v-model:value="formState.userPassword" placeholder="至少 8 位" />
-        </a-form-item>
-
-        <a-form-item label="确认密码" name="checkPassword">
-          <a-input-password v-model:value="formState.checkPassword" placeholder="再输入一次密码" />
-        </a-form-item>
-
-        <a-form-item>
-          <a-space>
-            <a-button type="primary" html-type="submit" :loading="submitting">注册</a-button>
-            <a-button @click="router.push('/user/login')">返回登录</a-button>
-          </a-space>
-        </a-form-item>
-      </a-form>
-    </a-card>
-  </div>
+    <div class="auth-extra">
+      <span />
+      <span class="auth-switch">
+        已有账号？<router-link to="/user/login">返回登录</router-link>
+      </span>
+    </div>
+  </AuthShell>
 </template>
 
 <script setup lang="ts">
@@ -36,7 +64,9 @@ import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { message, type FormInstance } from 'ant-design-vue'
 import type { Rule } from 'ant-design-vue/es/form'
+import { LockOutlined, SafetyOutlined, UserOutlined } from '@ant-design/icons-vue'
 
+import AuthShell from '@/components/AuthShell.vue'
 import { register, type RegisterParams } from '@/api/user'
 
 const router = useRouter()
@@ -91,16 +121,7 @@ async function handleSubmit() {
 </script>
 
 <style scoped>
-.register-page {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh;
-  background: #f0f2f5;
-}
-
-.register-card {
-  width: 400px;
-  box-shadow: 0 2px 8px rgb(0 0 0 / 9%);
+.submit-btn {
+  margin-top: 4px;
 }
 </style>

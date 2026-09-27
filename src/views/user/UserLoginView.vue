@@ -1,36 +1,54 @@
 <template>
-  <div class="login-page">
-    <a-card class="login-card" title="云图库 · 用户登录">
-      <a-form
-        ref="formRef"
-        :model="formState"
-        :rules="rules"
-        layout="vertical"
-        @finish="handleSubmit"
+  <AuthShell title="欢迎回来" subtitle="登录后即可上传与管理你的图片">
+    <a-form
+      ref="formRef"
+      :model="formState"
+      :rules="rules"
+      layout="vertical"
+      @finish="handleSubmit"
+    >
+      <a-form-item label="账号" name="userAccount">
+        <a-input
+          v-model:value="formState.userAccount"
+          size="large"
+          placeholder="请输入账号"
+          allow-clear
+        >
+          <template #prefix><UserOutlined /></template>
+        </a-input>
+      </a-form-item>
+
+      <a-form-item label="密码" name="userPassword">
+        <a-input-password
+          v-model:value="formState.userPassword"
+          size="large"
+          placeholder="请输入密码"
+        >
+          <template #prefix><LockOutlined /></template>
+        </a-input-password>
+      </a-form-item>
+
+      <a-button
+        type="primary"
+        size="large"
+        block
+        html-type="submit"
+        :loading="submitting"
+        class="submit-btn"
       >
-        <a-form-item label="账号" name="userAccount">
-          <a-input v-model:value="formState.userAccount" placeholder="请输入账号" allow-clear />
-        </a-form-item>
+        登录
+      </a-button>
+    </a-form>
 
-        <a-form-item label="密码" name="userPassword">
-          <a-input-password v-model:value="formState.userPassword" placeholder="请输入密码" />
-        </a-form-item>
-
-        <a-form-item>
-          <a-space>
-            <a-button type="primary" html-type="submit" :loading="submitting">登录</a-button>
-            <a-button @click="fillDemo">填入示例账号</a-button>
-          </a-space>
-        </a-form-item>
-      </a-form>
-
-      <a-divider style="margin: 8px 0" />
-      <a-typography-text type="secondary">
-        本地联调账号：<a-typography-text code>huangjun</a-typography-text> /
-        <a-typography-text code>12345678</a-typography-text>
-      </a-typography-text>
-    </a-card>
-  </div>
+    <div class="auth-extra">
+      <a-button type="link" size="small" :disabled="submitting" @click="fillDemo">
+        填入示例账号
+      </a-button>
+      <span class="auth-switch">
+        还没有账号？<router-link to="/user/register">立即注册</router-link>
+      </span>
+    </div>
+  </AuthShell>
 </template>
 
 <script setup lang="ts">
@@ -38,7 +56,9 @@ import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { message, type FormInstance } from 'ant-design-vue'
 import type { Rule } from 'ant-design-vue/es/form'
+import { LockOutlined, UserOutlined } from '@ant-design/icons-vue'
 
+import AuthShell from '@/components/AuthShell.vue'
 import type { LoginParams } from '@/api/user'
 import { useUserStore } from '@/stores/user'
 
@@ -84,16 +104,7 @@ async function handleSubmit() {
 </script>
 
 <style scoped>
-.login-page {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh;
-  background: #f0f2f5;
-}
-
-.login-card {
-  width: 400px;
-  box-shadow: 0 2px 8px rgb(0 0 0 / 9%);
+.submit-btn {
+  margin-top: 4px;
 }
 </style>

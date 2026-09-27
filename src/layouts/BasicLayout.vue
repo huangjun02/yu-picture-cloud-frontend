@@ -21,13 +21,34 @@
     <a-layout>
       <a-layout-header class="header">
         <span class="header-title">智能协同云图库</span>
-        <a-space>
-          <a-typography-text>
-            {{ loginUser?.userName ?? loginUser?.userAccount ?? '未登录' }}
-          </a-typography-text>
-          <a-tag v-if="isAdmin" color="gold">管理员</a-tag>
-          <a-button type="link" danger @click="handleLogout">退出</a-button>
-        </a-space>
+
+        <!-- 用户区：头像 + 昵称 + 身份，点开是下拉菜单 -->
+        <a-dropdown placement="bottomRight">
+          <div class="user-trigger">
+            <a-avatar :style="{ backgroundColor: avatarColor }" :size="34">
+              {{ avatarText }}
+            </a-avatar>
+            <div class="user-meta">
+              <span class="user-name">{{ displayName }}</span>
+              <span class="user-role">{{ roleLabel }}</span>
+            </div>
+            <DownOutlined class="user-arrow" />
+          </div>
+
+          <template #overlay>
+            <a-menu>
+              <a-menu-item key="account" disabled>
+                <IdcardOutlined />
+                账号：{{ loginUser?.userAccount ?? '-' }}
+              </a-menu-item>
+              <a-menu-divider />
+              <a-menu-item key="logout" danger @click="handleLogout">
+                <LogoutOutlined />
+                退出登录
+              </a-menu-item>
+            </a-menu>
+          </template>
+        </a-dropdown>
       </a-layout-header>
 
       <a-layout-content class="content">
@@ -41,7 +62,13 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
-import { CloudUploadOutlined, PictureOutlined } from '@ant-design/icons-vue'
+import {
+  CloudUploadOutlined,
+  DownOutlined,
+  IdcardOutlined,
+  LogoutOutlined,
+  PictureOutlined,
+} from '@ant-design/icons-vue'
 
 import { useUserStore } from '@/stores/user'
 
@@ -69,6 +96,26 @@ function handleMenuClick({ key }: { key: string | number }) {
 }
 
 const isAdmin = computed(() => loginUser.value?.userRole === 'admin')
+
+const displayName = computed(
+  () => loginUser.value?.userName ?? loginUser.value?.userAccount ?? '未登录',
+)
+
+const roleLabel = computed(() => (isAdmin.value ? '管理员' : '普通用户'))
+
+/**
+ * 头像文字：取昵称首字。中文取第一个字足够辨识，
+ * 英文（如 huangjun）取首字母更符合头像惯例。
+ */
+const avatarText = computed(() => {
+  const name = displayName.value.trim()
+  const first = name.charAt(0)
+  // 只在「纯 ASCII 且是小写」时转大写，避免把中文字符瞎折腾
+  return /^[a-z]$/.test(first) ? first.toUpperCase() : first
+})
+
+// 管理员用金色、普通用户用主色 —— 身份差异一眼可见，比一个小 tag 更省地方
+const avatarColor = computed(() => (isAdmin.value ? '#fa8c16' : '#1677ff'))
 
 async function handleLogout() {
   await userStore.logout()
@@ -105,6 +152,42 @@ async function handleLogout() {
 .header-title {
   font-size: 16px;
   font-weight: 600;
+}
+
+.user-trigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+  padding: 0 10px 0 6px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.user-trigger:hover {
+  background-color: rgb(0 0 0 / 4%);
+}
+
+.user-meta {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+}
+
+.user-name {
+  font-size: 14px;
+  color: rgb(0 0 0 / 88%);
+}
+
+.user-role {
+  font-size: 12px;
+  color: rgb(0 0 0 / 45%);
+}
+
+.user-arrow {
+  font-size: 12px;
+  color: rgb(0 0 0 / 45%);
 }
 
 .content {
