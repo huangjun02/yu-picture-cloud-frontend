@@ -8,7 +8,8 @@
     "build": "run-p type-check \"build-only {@}\" --",
     "preview": "vite preview",
     "build-only": "vite build",
-    "type-check": "vue-tsc --build"
+    "type-check": "vue-tsc --build",
+    "gen:api": "curl -sf http://localhost:8123/api/v3/api-docs/default -o openapi.json && npx -y openapi-typescript@7.13.0 openapi.json -o src/api/generated/schema.d.ts && echo \"✓ 类型已生成：src/api/generated/schema.d.ts\""
   },
   "dependencies": {
     "@ant-design/icons-vue": "^7.0.1",
