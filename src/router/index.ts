@@ -5,6 +5,7 @@ import HomeView from '@/views/HomeView.vue'
 import ImageDetailView from '@/views/image/ImageDetailView.vue'
 import ImageManageView from '@/views/image/ImageManageView.vue'
 import ImageReviewView from '@/views/image/ImageReviewView.vue'
+import ImageShareView from '@/views/image/ImageShareView.vue'
 import ImageUploadView from '@/views/image/ImageUploadView.vue'
 import UserLoginView from '@/views/user/UserLoginView.vue'
 import UserManageView from '@/views/user/UserManageView.vue'
@@ -23,6 +24,13 @@ const router = createRouter({
       path: '/user/register',
       name: 'user-register',
       component: UserRegisterView,
+    },
+    {
+      // 分享页：免登录 + 独立布局（游客没有侧边栏/用户区）。
+      // 不在 BasicLayout 下，所以它不会被"未登录踢登录页"影响 —— 见下方守卫改造。
+      path: '/share/:code',
+      name: 'image-share',
+      component: ImageShareView,
     },
     {
       // 业务页统一挂在 BasicLayout 下（布局只存在一份，见下方注释）
@@ -78,8 +86,11 @@ const router = createRouter({
   ],
 })
 
-/** 无需登录即可访问的页面 */
-const PUBLIC_ROUTES = ['user-login', 'user-register']
+/** 无需登录即可访问的页面（游客可进）。分享页在此列：游客和已登录用户都要能看 */
+const PUBLIC_ROUTES = ['user-login', 'user-register', 'image-share']
+
+/** 已登录用户不该再停留的页面（只有登录/注册页）—— 分享页不在此列 */
+const REDIRECT_WHEN_LOGGED_IN = ['user-login', 'user-register']
 
 /**
  * 全局前置守卫：没登录只能待在登录页 / 注册页。
@@ -102,8 +113,8 @@ router.beforeEach(async (to) => {
   if (!isPublic && !userStore.loginUser) {
     return { name: 'user-login' }
   }
-  if (isPublic && userStore.loginUser) {
-    // 已登录就别再看登录/注册页
+  // 只有登录/注册页在"已登录"时踢回首页；分享页登录后照样能看（否则本人点自己的分享链接会被弹走）
+  if (REDIRECT_WHEN_LOGGED_IN.includes(String(to.name)) && userStore.loginUser) {
     return { path: '/' }
   }
   // 管理员页面的前端拦截：后端才是权威（reviewImage 自己会校验角色），

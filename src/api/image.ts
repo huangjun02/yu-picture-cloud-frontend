@@ -161,3 +161,23 @@ export function reviewImage(params: ImageReviewRequest): Promise<boolean> {
 export function crawlImages(data: ImageCrawlRequest): Promise<ImageCrawlResultVO> {
   return post('/image/crawl', data, { timeout: 180000 })
 }
+
+/**
+ * 生成分享短链（本人或管理员）。返回分享码。
+ *
+ * ⚠️ 是 POST + URL 参数（同 getImage / deleteImage）：@RequestParam 的参数塞进 body
+ * 会因缺参被后端包成 50000「系统内部异常」，看着像后端 bug。
+ *
+ * 完整短链由前端拼：`${window.location.origin}/share/${code}` —— 链接格式属于前端路由知识。
+ */
+export function shareImage(id: string): Promise<string> {
+  return post<string>(`/image/share?id=${encodeURIComponent(id)}`)
+}
+
+/**
+ * 按分享码查看图片（**免登录** —— 后端已把 /image/share/view 加进白名单）。
+ * 已通过的图游客可看；未通过/不存在/已删除 → 后端 40400，拦截器会弹提示，页面走空态。
+ */
+export function getSharedImage(shareCode: string): Promise<ImageVO> {
+  return post<ImageVO>(`/image/share/view?shareCode=${encodeURIComponent(shareCode)}`)
+}

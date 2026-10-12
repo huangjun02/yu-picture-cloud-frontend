@@ -120,6 +120,11 @@
               <DownloadOutlined />
               下载原图
             </a-button>
+            <!-- 生成分享码是"本人/管理员"动作，与编辑/删除同一道闸 -->
+            <a-button v-if="canOperate" block :loading="sharing" @click="handleShare">
+              <ShareAltOutlined />
+              分享
+            </a-button>
             <!-- 管理员就地审核：从审核工作台点进来看图时，不该还要退出去才能改状态 -->
             <a-button v-if="isAdmin" block @click="openReview">
               <AuditOutlined />
@@ -197,6 +202,7 @@ import {
   DeleteOutlined,
   DownloadOutlined,
   EditOutlined,
+  ShareAltOutlined,
 } from '@ant-design/icons-vue'
 
 import ImageReviewModal from '@/components/ImageReviewModal.vue'
@@ -206,6 +212,7 @@ import {
   downloadImage,
   getImage,
   listImageOptions,
+  shareImage,
   updateImage,
   type ImageUpdateRequest,
   type ImageVO,
@@ -333,6 +340,33 @@ async function handleDownload() {
     await downloadImage(record.value.id, (record.value.name ?? '图片') + '.' + (record.value.picFormat ?? 'jpg'))
   } finally {
     downloading.value = false
+  }
+}
+
+// ---- 分享 ----
+const sharing = ref(false)
+
+/**
+ * 生成（或复用）分享码，把完整短链复制到剪贴板。
+ * 后端幂等：已分享过返回原码，所以重复点同一条链接，不会产生多份。
+ */
+async function handleShare() {
+  if (!record.value?.id || sharing.value) return
+  sharing.value = true
+  try {
+    const code = await shareImage(record.value.id)
+    const link = `${window.location.origin}/share/${code}`
+    try {
+      await navigator.clipboard.writeText(link)
+      message.success('分享链接已复制：' + link)
+    } catch {
+      // 剪贴板不可用（非安全上下文 / 权限被拒）→ 退化成把链接展示出来让用户手抄
+      message.info('分享链接：' + link)
+    }
+  } catch {
+    // 拦截器已提示
+  } finally {
+    sharing.value = false
   }
 }
 
