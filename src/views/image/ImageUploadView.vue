@@ -152,7 +152,7 @@ async function handleSubmit() {
       const vo = await uploadImage(file, formState.name || undefined)
       message.success(`上传成功：${vo.name ?? ''}`)
       handleReset()
-      await router.push('/')
+      await router.push('/image/manage')
     } catch {
       // 错误提示由 axios 拦截器统一弹出，这里不重复
     } finally {
@@ -178,7 +178,7 @@ async function handleSubmit() {
     const vo = await uploadImageByUrl(url, formState.name || undefined)
     message.success(`导入成功：${vo.name ?? ''}`)
     handleReset()
-    await router.push('/')
+    await router.push('/image/manage')
   } catch {
     // 拦截器已提示（内网地址、拉取失败、非图片内容都会在这里报出来）
   } finally {

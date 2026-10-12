@@ -30,6 +30,13 @@
           :options="tagOptions"
         />
       </a-form-item>
+      <a-form-item label="审核状态">
+        <a-select
+          v-model:value="reviewStatusFilter"
+          style="width: 120px"
+          :options="reviewStatusOptions"
+        />
+      </a-form-item>
       <a-form-item>
         <a-space>
           <a-button type="primary" @click="handleSearch">搜索</a-button>
@@ -158,6 +165,20 @@ const query = reactive<ImageQueryRequest>({
 const selectedTags = ref<string[]>([])
 
 /**
+ * 审核状态筛选。
+ *
+ * ⚠️ 「全部」用 -1 表示，但 **-1 只是个前端哨兵值，绝不能发给后端**
+ * （后端只认 null / 1 / 2，传 -1 会被当成非法状态）。发请求时把 -1 翻译成 undefined。
+ */
+const reviewStatusFilter = ref<number>(-1)
+const reviewStatusOptions = [
+  { label: '全部', value: -1 },
+  { label: '待审核', value: 0 },
+  { label: '已通过', value: 1 },
+  { label: '已拒绝', value: 2 },
+]
+
+/**
  * 分类/标签候选项：从当前页数据里现收（不去后端专门拉字典 —— 图库规模小，
  * 「翻几页后选项就全了」比多一个接口实在。数据量大后再换后端字典接口）。
  */
@@ -221,6 +242,14 @@ async function load() {
     if (selectedTags.value.length > 0) {
       params.tags = JSON.stringify(selectedTags.value)
     }
+    // 可见性靠这个字段区分（后端规则）：
+    //  - 普通用户传自己的 userId → 「我的图片」视角，能看见自己的待审核 / 被拒（否则刚传的图当场"消失"）
+    //  - 管理员不传 → 全库数据，可按审核状态筛待办
+    if (!isAdmin.value && userStore.loginUser?.id) {
+      params.userId = userStore.loginUser.id
+    }
+    // 哨兵值 -1（全部）翻译成 undefined：前端 UI 的「全部」不是后端的合法状态值
+    params.reviewStatus = reviewStatusFilter.value === -1 ? undefined : reviewStatusFilter.value
     const page = await listImageByPage(params)
     records.value = page.records ?? []
     total.value = page.total ?? 0
@@ -241,6 +270,7 @@ function handleReset() {
   query.name = ''
   query.category = undefined
   selectedTags.value = []
+  reviewStatusFilter.value = -1
   query.pageNum = 1
   load()
 }
@@ -297,7 +327,7 @@ async function handleDelete(record: ImageVO) {
 
 // ---- 详情：跳独立详情页（原弹窗已由 ImageDetailView 取代）----
 function goDetail(record: ImageVO) {
-  router.push(`/image/detail/${record.id}`)
+  router.push({ path: `/image/detail/${record.id}`, query: { from: 'manage' } })
 }
 
 // ---- 审核（管理员）----

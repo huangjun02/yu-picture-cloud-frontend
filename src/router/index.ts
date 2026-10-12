@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import BasicLayout from '@/layouts/BasicLayout.vue'
 import HealthView from '@/views/HealthView.vue'
+import HomeView from '@/views/HomeView.vue'
 import ImageDetailView from '@/views/image/ImageDetailView.vue'
 import ImageManageView from '@/views/image/ImageManageView.vue'
 import ImageReviewView from '@/views/image/ImageReviewView.vue'
@@ -28,7 +29,14 @@ const router = createRouter({
       component: BasicLayout,
       children: [
         {
+          // 主页 = 已通过审核的图片墙（浏览/搜索）
           path: '',
+          name: 'home',
+          component: HomeView,
+        },
+        {
+          // 我的图片（管理员则是全库管理）：表格视角，看得到待审核 / 被拒状态
+          path: 'image/manage',
           name: 'image-manage',
           component: ImageManageView,
         },

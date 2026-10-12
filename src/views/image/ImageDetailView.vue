@@ -114,7 +114,7 @@
               <AuditOutlined />
               审核
             </a-button>
-            <a-space style="width: 100%">
+            <a-space v-if="canOperate" style="width: 100%">
               <a-button block @click="openEdit">
                 <EditOutlined />
                 编辑
@@ -250,16 +250,34 @@ const isAdmin = computed(() => userStore.loginUser?.userRole === 'admin')
 /**
  * 返回哪一页由「来处」决定（路由 query 里的 from）。
  *
- * <p>审核工作台点「查看」进来，返回时必须回审核页 —— 否则管理员审到一半，
- * 一返回落在图片管理列表，还得再点一次侧栏、重新等他刚才那批待办。
- * 不带 from 时按「图片管理」处理（列表页的详情入口、直接粘 URL 都属于这种）。
+ * <p>详情页有三个入口（主页图墙 / 我的图片 / 审核工作台），返回时各回各家 ——
+ * 一刀切回某一个列表的话，管理员审到一半返回就掉进"我的图片"，还得重新点侧栏、
+ * 重新等他刚才那批待办。
+ *
+ * <p>不带 from（直接粘 URL、外链进来）按主页处理：主页是所有入口里最"公共"的那个。
  */
-const comeFromReview = computed(() => route.query.from === 'review')
-const backLabel = computed(() => (comeFromReview.value ? '返回审核' : '返回列表'))
+const HOME_BACK = { label: '返回主页', path: '/' }
+const BACK_TARGETS: Record<string, { label: string; path: string }> = {
+  home: HOME_BACK,
+  manage: { label: '返回列表', path: '/image/manage' },
+  review: { label: '返回审核', path: '/image/review' },
+}
+// 兜底用独立的常量而不是 BACK_TARGETS.home：索引访问在 noUncheckedIndexedAccess 下
+// 类型是 T | undefined，拿它兜底等于没兜（TS 仍然按可能 undefined 报错）
+const backTarget = computed(() => BACK_TARGETS[String(route.query.from ?? 'home')] ?? HOME_BACK)
+const backLabel = computed(() => backTarget.value.label)
 
 function goBack() {
-  router.push(comeFromReview.value ? '/image/review' : '/')
+  router.push(backTarget.value.path)
 }
+
+/**
+ * 能不能编辑/删除这张图：本人或管理员。
+ *
+ * <p>主页图墙让「别人的已通过图」也能被打开，所以这两个按钮不能无条件显示 ——
+ * 不然普通用户点进去就是一排 40101 报错。前端隐藏只是体验，后端 checkImageOwner 仍是权威。
+ */
+const canOperate = computed(() => isMine.value || isAdmin.value)
 
 // ---- 审核（管理员）----
 const reviewOpen = ref(false)
@@ -325,7 +343,7 @@ async function handleDelete() {
     await deleteImage(record.value.id)
     message.success('删除成功')
     // 删除也按来源回：从审核页进来的，删完继续审下一张
-    await router.push(comeFromReview.value ? '/image/review' : '/')
+    await router.push(backTarget.value.path)
   } catch {
     // 拦截器已提示
   }

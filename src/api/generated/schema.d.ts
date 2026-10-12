@@ -208,6 +208,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/image/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 主页筛选项：分类与标签候选（登录用户） */
+        post: operations["listOptions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/image/list/page": {
         parameters: {
             query?: never;
@@ -466,6 +483,17 @@ export interface components {
             /** Format: int32 */
             reviewStatus?: number;
             reviewMessage?: string;
+            resetReviewParams?: boolean;
+        };
+        BaseResponseImageOptionsVO: {
+            /** Format: int32 */
+            code?: number;
+            data?: components["schemas"]["ImageOptionsVO"];
+            message?: string;
+        };
+        ImageOptionsVO: {
+            categories?: string[];
+            tags?: string[];
         };
         ImageQueryRequest: {
             /** Format: int32 */
@@ -798,6 +826,26 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["BaseResponseBoolean"];
+                };
+            };
+        };
+    };
+    listOptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["BaseResponseImageOptionsVO"];
                 };
             };
         };

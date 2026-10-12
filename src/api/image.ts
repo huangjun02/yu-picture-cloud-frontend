@@ -17,6 +17,7 @@ export type PageImageVO = components['schemas']['PageImageVO']
 export type ImageQueryRequest = components['schemas']['ImageQueryRequest']
 export type ImageUpdateRequest = components['schemas']['ImageUpdateRequest']
 export type ImageReviewRequest = components['schemas']['ImageReviewRequest']
+export type ImageOptionsVO = components['schemas']['ImageOptionsVO']
 
 /**
  * 上传图片：multipart/form-data。
@@ -32,7 +33,14 @@ export function uploadImage(file: File, name?: string): Promise<ImageVO> {
   return post<ImageVO>('/image/upload', formData)
 }
 
-/** 分页查询图片：普通用户只能看到自己的，管理员可查全部（后端强制，不靠前端传参） */
+/**
+ * 分页查询图片（列表 / 主页共用）。
+ *
+ * <p>可见性由后端按「传不传自己的 userId」区分，前端只需选对用法：
+ *  - **主页浏览**：不传 userId（后端自动只给已通过的图）—— 传 userId 会变成查那个人的全部
+ *  - **我的图片**：显式传自己的 userId（普通用户），否则看不见自己的待审核 / 被拒图
+ *  - **管理员图库管理**：不传 userId → 全部数据，配合 reviewStatus 筛待办
+ */
 export function listImageByPage(params: ImageQueryRequest): Promise<PageImageVO> {
   return post<PageImageVO>('/image/list/page', params)
 }
@@ -119,10 +127,23 @@ export function uploadImageByUrl(fileUrl: string, name?: string): Promise<ImageV
 }
 
 /**
+ * 主页筛选项：分类与标签候选。
+ *
+ * <p>不写死一份分类清单 —— 分类/标签来自用户上传时填的内容，写死会导致
+ * 「用户填的分类在主页筛不出来」。只返回已通过审核图上的值（待审核图不泄露）。
+ */
+export function listImageOptions(): Promise<ImageOptionsVO> {
+  return post<ImageOptionsVO>('/image/options')
+}
+
+/**
  * 审核图片（管理员）。
  *
  * 结论 1-通过 / 2-拒绝；**拒绝必须带 reviewMessage**（后端强制，没理由的拒绝会被 40000 打回）。
- * 三字段一体提交，所以走请求体（与 update 同款语义）。
+ *
+ * <p>`resetReviewParams` 是重复审核时的开关（不传等价于 true）：
+ *   - true  重置全部审核参数（审核人 / 时间 / 意见都以本次为准）
+ *   - false 只改状态，保留上一次的审核信息当历史参考；此时不要求填原因（填了也不落库）
  */
 export function reviewImage(params: ImageReviewRequest): Promise<boolean> {
   return post<boolean>('/image/review', params)

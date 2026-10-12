@@ -8,6 +8,10 @@
 
       <a-menu v-model:selectedKeys="selectedKeys" mode="inline" @click="handleMenuClick">
         <a-menu-item key="/">
+          <template #icon><HomeOutlined /></template>
+          <span>主页</span>
+        </a-menu-item>
+        <a-menu-item key="/image/manage">
           <template #icon><PictureOutlined /></template>
           <span>我的图片</span>
         </a-menu-item>
@@ -71,6 +75,7 @@ import {
   AuditOutlined,
   CloudUploadOutlined,
   DownOutlined,
+  HomeOutlined,
   IdcardOutlined,
   LogoutOutlined,
   PictureOutlined,
@@ -88,18 +93,24 @@ const loginUser = computed(() => userStore.loginUser)
 // 菜单选中态必须由「当前路由」推导，不能自己存一份状态：
 // 存两份的话，用户用浏览器前进/后退时菜单高亮就会和页面内容对不上。
 //
-// 详情页是列表的子路径（/image/detail/:id），没有自己的菜单项 ——
-// 高亮回落到「我的图片」，否则进了详情页整条菜单都没选中，像走丢了。
-function menuKeyOf(path: string) {
-  return path.startsWith('/image/detail/') ? '/' : path
+// 详情页没有自己的菜单项 —— 高亮交给「从哪来的」（query.from）：
+// 从主页进就亮主页、从我的图片进就亮我的图片、从审核页进就亮审核页。
+// 不这么做的话，管理员审到一半进详情，菜单会跳回别处，像走丢了。
+function menuKeyOf(name: unknown, from: unknown) {
+  if (name === 'image-detail') {
+    if (from === 'review') return '/image/review'
+    if (from === 'manage') return '/image/manage'
+    return '/'
+  }
+  return route.path
 }
 
-const selectedKeys = ref<string[]>([menuKeyOf(route.path)])
+const selectedKeys = ref<string[]>([menuKeyOf(route.name, route.query.from)])
 
 watch(
-  () => route.path,
-  (path) => {
-    selectedKeys.value = [menuKeyOf(path)]
+  () => [route.name, route.query.from],
+  () => {
+    selectedKeys.value = [menuKeyOf(route.name, route.query.from)]
   },
 )
 
