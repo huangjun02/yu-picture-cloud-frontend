@@ -43,7 +43,7 @@
           />
         </template>
         <template v-else-if="column.dataIndex === 'picSize'">{{ formatSize(record.picSize) }}</template>
-        <template v-else-if="column.dataIndex === 'createTime'">{{ formatTime(record.createTime) }}</template>
+        <template v-else-if="column.dataIndex === 'createTime'">{{ formatDateTime(record.createTime) }}</template>
         <template v-else-if="column.dataIndex === 'reviewStatus'">
           <a-tag :color="statusMeta(record.reviewStatus).color">{{ statusMeta(record.reviewStatus).text }}</a-tag>
         </template>
@@ -88,6 +88,7 @@ import { message, type TableProps } from 'ant-design-vue'
 import { ReloadOutlined } from '@ant-design/icons-vue'
 
 import { listImageByPage, reviewImage, type ImageQueryRequest, type ImageVO } from '@/api/image'
+import { formatDateTime } from '@/utils/datetime'
 import ImageReviewModal from '@/components/ImageReviewModal.vue'
 
 const router = useRouter()
@@ -215,9 +216,6 @@ function formatSize(bytes?: number) {
   return `${(bytes / 1024 / 1024).toFixed(2)} MB`
 }
 
-function formatTime(value?: string) {
-  return value ? value.replace('T', ' ').slice(0, 19) : '-'
-}
 
 onMounted(load)
 </script>

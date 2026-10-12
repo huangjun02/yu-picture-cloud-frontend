@@ -51,7 +51,12 @@
           @click="goDetail(image.id)"
         >
           <div class="card-cover">
-            <img :src="image.thumbnailUrl ?? image.url" :alt="image.name" loading="lazy" />
+            <img
+              :src="image.thumbnailUrl ?? image.url"
+              :alt="image.name"
+              loading="lazy"
+              @error="onImgError(image, $event)"
+            />
           </div>
           <div class="card-body">
             <div class="card-name" :title="image.name">{{ image.name || '未命名图片' }}</div>
@@ -163,6 +168,24 @@ function toggleTag(tag: string) {
     selectedTags.value.push(tag)
   }
   resetAndLoad()
+}
+
+/**
+ * 缩略图 404 时回退原图。
+ *
+ * <p>为什么必须兜这一道：`thumbnailUrl` 是**推导**出来的（`xxx_thumb.jpg`），
+ * 而派生文件是 M4 上线后才开始生成的 —— 存量旧图、以及源图本身是 webp 的图
+ * 都没有缩略图文件。没有这个兜底，卡片就是一排裂图（列表页早先就有这个兜底，
+ * 主页是后写的，漏了）。
+ *
+ * <p>回退是幂等的：已经回退过（src 已经是原图）就不再折腾，避免死循环。
+ */
+function onImgError(image: ImageVO, event: Event) {
+  const img = event.target as HTMLImageElement
+  const fallback = image.url
+  if (fallback && img.src !== fallback) {
+    img.src = fallback
+  }
 }
 
 function goDetail(id?: string) {

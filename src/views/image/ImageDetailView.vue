@@ -76,7 +76,7 @@
             </div>
             <div class="meta-row">
               <span class="meta-label">上传时间</span>
-              <span class="meta-value">{{ formatTime(record.createTime) }}</span>
+              <span class="meta-value">{{ formatDateTime(record.createTime) }}</span>
             </div>
             <div class="meta-row">
               <span class="meta-label">审核状态</span>
@@ -187,6 +187,7 @@ import {
   type ImageVO,
 } from '@/api/image'
 import { useUserStore } from '@/stores/user'
+import { formatDateTime } from '@/utils/datetime'
 
 const route = useRoute()
 const router = useRouter()
@@ -357,9 +358,6 @@ function formatSize(bytes?: number) {
   return `${(bytes / 1024 / 1024).toFixed(2)} MB`
 }
 
-function formatTime(value?: string) {
-  return value ? value.replace('T', ' ').slice(0, 19) : '-'
-}
 
 onMounted(load)
 </script>

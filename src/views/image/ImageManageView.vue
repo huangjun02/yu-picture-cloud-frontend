@@ -76,7 +76,7 @@
           {{ record.picWidth && record.picHeight ? `${record.picWidth} × ${record.picHeight}` : '-' }}
         </template>
         <template v-else-if="column.dataIndex === 'createTime'">
-          {{ formatTime(record.createTime) }}
+          {{ formatDateTime(record.createTime) }}
         </template>
         <template v-else-if="column.dataIndex === 'reviewStatus'">
           <a-tag :color="reviewMeta(record.reviewStatus).color">{{ reviewMeta(record.reviewStatus).text }}</a-tag>
@@ -136,6 +136,7 @@ import { message, type TableProps } from 'ant-design-vue'
 import ImageReviewModal from '@/components/ImageReviewModal.vue'
 
 import { useUserStore } from '@/stores/user'
+import { formatDateTime } from '@/utils/datetime'
 import {
   deleteImage,
   listImageByPage,
@@ -383,10 +384,6 @@ function formatSize(bytes?: number) {
   return `${(bytes / 1024 / 1024).toFixed(2)} MB`
 }
 
-function formatTime(value?: string) {
-  // 后端返回 ISO 格式（2026-09-27T18:47:49），直接展示太啰嗦，替换成空格更易读
-  return value ? value.replace('T', ' ').slice(0, 19) : '-'
-}
 
 onMounted(load)
 </script>
