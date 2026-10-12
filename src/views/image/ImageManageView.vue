@@ -1,5 +1,5 @@
 <template>
-  <a-card title="我的图片">
+  <a-card title="图片管理">
     <!-- 搜索：名称模糊 + 分类精确 + 标签多选（AND 语义） -->
     <a-form layout="inline" :model="query">
       <a-form-item label="图片名称">
@@ -265,7 +265,7 @@ async function load() {
       params.tags = JSON.stringify(selectedTags.value)
     }
     // 可见性靠这个字段区分（后端规则）：
-    //  - 普通用户传自己的 userId → 「我的图片」视角，能看见自己的待审核 / 被拒（否则刚传的图当场"消失"）
+    //  - 普通用户传自己的 userId → 「我的图」视角，能看见自己的待审核 / 被拒（否则刚传的图当场"消失"）
     //  - 管理员不传 → 全库数据，可按审核状态筛待办
     if (!isAdmin.value && userStore.loginUser?.id) {
       params.userId = userStore.loginUser.id

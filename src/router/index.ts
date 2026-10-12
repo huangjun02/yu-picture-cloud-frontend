@@ -36,7 +36,7 @@ const router = createRouter({
           component: HomeView,
         },
         {
-          // 我的图片（管理员则是全库管理）：表格视角，看得到待审核 / 被拒状态
+          // 图片管理（菜单名对齐课程；管理员则是全库管理）：表格视角，看得到待审核 / 被拒状态
           path: 'image/manage',
           name: 'image-manage',
           component: ImageManageView,

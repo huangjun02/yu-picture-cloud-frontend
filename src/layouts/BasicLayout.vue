@@ -13,11 +13,11 @@
         </a-menu-item>
         <a-menu-item key="/image/manage">
           <template #icon><PictureOutlined /></template>
-          <span>我的图片</span>
+          <span>图片管理</span>
         </a-menu-item>
         <a-menu-item key="/image/upload">
           <template #icon><CloudUploadOutlined /></template>
-          <span>上传图片</span>
+          <span>创建图片</span>
         </a-menu-item>
         <!-- 管理员专属入口：后端会再校验一次角色，这里只是别让普通用户看见入口 -->
         <a-menu-item v-if="isAdmin" key="/user/manage">
@@ -99,7 +99,7 @@ const loginUser = computed(() => userStore.loginUser)
 // 存两份的话，用户用浏览器前进/后退时菜单高亮就会和页面内容对不上。
 //
 // 详情页没有自己的菜单项 —— 高亮交给「从哪来的」（query.from）：
-// 从主页进就亮主页、从我的图片进就亮我的图片、从审核页进就亮审核页。
+// 从主页进就亮主页、从图片管理进就亮图片管理、从审核页进就亮审核页。
 // 不这么做的话，管理员审到一半进详情，菜单会跳回别处，像走丢了。
 function menuKeyOf(name: unknown, from: unknown) {
   if (name === 'image-detail') {

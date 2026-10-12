@@ -1,5 +1,5 @@
 <template>
-  <a-card title="上传图片">
+  <a-card title="创建图片">
     <!-- 两种传图方式：本地文件 / 远端 URL。单选按钮切换，同一张表单按模式渲染 -->
     <a-radio-group v-model:value="mode" button-style="solid" style="margin-bottom: 24px">
       <a-radio-button value="file">
