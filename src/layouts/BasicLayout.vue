@@ -19,7 +19,11 @@
           <template #icon><CloudUploadOutlined /></template>
           <span>上传图片</span>
         </a-menu-item>
-        <!-- 审核工作台只对管理员显示：后端会再校验一次角色，这里只是别让普通用户看见入口 -->
+        <!-- 管理员专属入口：后端会再校验一次角色，这里只是别让普通用户看见入口 -->
+        <a-menu-item v-if="isAdmin" key="/user/manage">
+          <template #icon><TeamOutlined /></template>
+          <span>用户管理</span>
+        </a-menu-item>
         <a-menu-item v-if="isAdmin" key="/image/review">
           <template #icon><AuditOutlined /></template>
           <span>图片审核</span>
@@ -79,6 +83,7 @@ import {
   IdcardOutlined,
   LogoutOutlined,
   PictureOutlined,
+  TeamOutlined,
 } from '@ant-design/icons-vue'
 
 import { useUserStore } from '@/stores/user'

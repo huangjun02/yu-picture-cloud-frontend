@@ -7,6 +7,7 @@ import ImageManageView from '@/views/image/ImageManageView.vue'
 import ImageReviewView from '@/views/image/ImageReviewView.vue'
 import ImageUploadView from '@/views/image/ImageUploadView.vue'
 import UserLoginView from '@/views/user/UserLoginView.vue'
+import UserManageView from '@/views/user/UserManageView.vue'
 import UserRegisterView from '@/views/user/UserRegisterView.vue'
 import { useUserStore } from '@/stores/user'
 
@@ -51,6 +52,13 @@ const router = createRouter({
           path: 'image/detail/:id',
           name: 'image-detail',
           component: ImageDetailView,
+        },
+        {
+          // 用户管理：管理员专属（与审核页同一套双重把关）
+          path: 'user/manage',
+          name: 'user-manage',
+          component: UserManageView,
+          meta: { requiresAdmin: true },
         },
         {
           // 审核工作台：只给管理员（meta 标记 + 下面的守卫双重把关）
