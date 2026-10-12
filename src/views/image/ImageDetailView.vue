@@ -4,7 +4,7 @@
     <div class="page-bar">
       <a-button type="text" @click="goBack">
         <ArrowLeftOutlined />
-        返回列表
+        {{ backLabel }}
       </a-button>
       <span class="page-bar-title">图片详情</span>
     </div>
@@ -109,6 +109,11 @@
               <DownloadOutlined />
               下载原图
             </a-button>
+            <!-- 管理员就地审核：从审核工作台点进来看图时，不该还要退出去才能改状态 -->
+            <a-button v-if="isAdmin" block @click="openReview">
+              <AuditOutlined />
+              审核
+            </a-button>
             <a-space style="width: 100%">
               <a-button block @click="openEdit">
                 <EditOutlined />
@@ -130,6 +135,9 @@
         </aside>
       </div>
     </a-spin>
+
+    <!-- 审核弹窗：与列表页/审核工作台共用同一个组件 -->
+    <ImageReviewModal v-model:open="reviewOpen" :image="record" @reviewed="load" />
 
     <!-- 编辑弹窗：字段与列表页一致（只有名称/简介/分类/标签可改） -->
     <a-modal
@@ -162,10 +170,13 @@ import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import {
   ArrowLeftOutlined,
+  AuditOutlined,
   DeleteOutlined,
   DownloadOutlined,
   EditOutlined,
 } from '@ant-design/icons-vue'
+
+import ImageReviewModal from '@/components/ImageReviewModal.vue'
 
 import {
   deleteImage,
@@ -234,8 +245,27 @@ async function load() {
   }
 }
 
+const isAdmin = computed(() => userStore.loginUser?.userRole === 'admin')
+
+/**
+ * 返回哪一页由「来处」决定（路由 query 里的 from）。
+ *
+ * <p>审核工作台点「查看」进来，返回时必须回审核页 —— 否则管理员审到一半，
+ * 一返回落在图片管理列表，还得再点一次侧栏、重新等他刚才那批待办。
+ * 不带 from 时按「图片管理」处理（列表页的详情入口、直接粘 URL 都属于这种）。
+ */
+const comeFromReview = computed(() => route.query.from === 'review')
+const backLabel = computed(() => (comeFromReview.value ? '返回审核' : '返回列表'))
+
 function goBack() {
-  router.push('/')
+  router.push(comeFromReview.value ? '/image/review' : '/')
+}
+
+// ---- 审核（管理员）----
+const reviewOpen = ref(false)
+
+function openReview() {
+  reviewOpen.value = true
 }
 
 /** WebP 副本 404（存量旧图）→ 退回原图；原图挂了就没得退，交给 fallback */
@@ -294,7 +324,8 @@ async function handleDelete() {
   try {
     await deleteImage(record.value.id)
     message.success('删除成功')
-    await router.push('/')
+    // 删除也按来源回：从审核页进来的，删完继续审下一张
+    await router.push(comeFromReview.value ? '/image/review' : '/')
   } catch {
     // 拦截器已提示
   }

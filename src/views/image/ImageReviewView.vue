@@ -23,6 +23,7 @@
 
     <a-table
       row-key="id"
+      table-layout="fixed"
       :columns="columns"
       :data-source="records"
       :loading="loading"
@@ -66,7 +67,7 @@
               type="link"
               size="small"
               danger
-              @click="openReject(record)"
+              @click="openReview(record)"
             >
               拒绝
             </a-button>
@@ -76,30 +77,8 @@
     </a-table>
   </a-card>
 
-  <!-- 拒绝必须写原因（后端也强制）：把「为什么」留在库里，用户和未来的自己都能查 -->
-  <a-modal
-    v-model:open="rejectOpen"
-    title="拒绝原因"
-    :confirm-loading="submitting"
-    ok-text="确认拒绝"
-    cancel-text="取消"
-    @ok="handleRejectSubmit"
-  >
-    <a-form layout="vertical">
-      <a-form-item label="图片" v-if="rejectTarget">
-        <span>{{ rejectTarget.name || '未命名图片' }}</span>
-      </a-form-item>
-      <a-form-item label="原因" required>
-        <a-textarea
-          v-model:value="rejectMessage"
-          :rows="3"
-          :maxlength="200"
-          show-count
-          placeholder="例如：内容不合适 / 与图库主题无关"
-        />
-      </a-form-item>
-    </a-form>
-  </a-modal>
+  <!-- 审核弹窗：与列表页/详情页共用同一个组件（拒绝必填原因的规则只有一份） -->
+  <ImageReviewModal v-model:open="reviewOpen" :image="reviewTarget" @reviewed="load" />
 </template>
 
 <script setup lang="ts">
@@ -109,6 +88,7 @@ import { message, type TableProps } from 'ant-design-vue'
 import { ReloadOutlined } from '@ant-design/icons-vue'
 
 import { listImageByPage, reviewImage, type ImageQueryRequest, type ImageVO } from '@/api/image'
+import ImageReviewModal from '@/components/ImageReviewModal.vue'
 
 const router = useRouter()
 
@@ -121,14 +101,19 @@ const statusFilter = ref<number>(-1)
 
 const query = reactive<ImageQueryRequest>({ pageNum: 1, pageSize: 10, reviewStatus: 0 })
 
+/**
+ * 列宽一律显式给出（配 table-layout="fixed"）：
+ * auto 布局下带 ellipsis 的文本列仍按内容最小宽度撑开，列宽之和恒定大于容器，
+ * 底部就永远挂着一条横向滚动条（用 1400/1920 两种视口都实测到过）。
+ */
 const columns: TableProps['columns'] = [
   { title: '图片', dataIndex: 'url', width: 100 },
-  { title: '名称', dataIndex: 'name', ellipsis: true },
+  { title: '名称', dataIndex: 'name', ellipsis: true, width: 180 },
   { title: '分类', dataIndex: 'category', width: 100, ellipsis: true },
   { title: '大小', dataIndex: 'picSize', width: 100 },
-  { title: '上传时间', dataIndex: 'createTime', width: 170 },
-  { title: '审核状态', dataIndex: 'reviewStatus', width: 100 },
-  { title: '审核意见', dataIndex: 'reviewMessage', ellipsis: true },
+  { title: '上传时间', dataIndex: 'createTime', width: 160 },
+  { title: '审核状态', dataIndex: 'reviewStatus', width: 90 },
+  { title: '审核意见', dataIndex: 'reviewMessage', ellipsis: true, width: 200 },
   { title: '操作', dataIndex: 'action', width: 150 },
 ]
 
@@ -183,6 +168,11 @@ function statusMeta(status?: number) {
   }
 }
 
+/**
+ * 通过走「一键直过」而不是弹窗：审核工作台是批处理场景，
+ * 大多数待审图都是「看一眼就过」，多一层弹窗纯属加点击。
+ * 拒绝则必然要写原因，所以走共用弹窗。
+ */
 async function handlePass(record: ImageVO) {
   if (!record.id) return
   try {
@@ -194,40 +184,21 @@ async function handlePass(record: ImageVO) {
   }
 }
 
-// ---- 拒绝：必须带原因 ----
-const rejectOpen = ref(false)
-const rejectTarget = ref<ImageVO | null>(null)
-const rejectMessage = ref('')
-const submitting = ref(false)
+// ---- 拒绝：打开共用弹窗（原因必填的校验在组件里）----
+const reviewOpen = ref(false)
+const reviewTarget = ref<ImageVO | null>(null)
 
-function openReject(record: ImageVO) {
-  rejectTarget.value = record
-  rejectMessage.value = ''
-  rejectOpen.value = true
+function openReview(record: ImageVO) {
+  reviewTarget.value = record
+  reviewOpen.value = true
 }
 
-async function handleRejectSubmit() {
-  if (!rejectTarget.value?.id) return
-  const reason = rejectMessage.value.trim()
-  if (!reason) {
-    message.warning('请填写拒绝原因')
-    return
-  }
-  submitting.value = true
-  try {
-    await reviewImage({ id: rejectTarget.value.id, reviewStatus: 2, reviewMessage: reason })
-    message.success('已拒绝')
-    rejectOpen.value = false
-    await load()
-  } catch {
-    // 拦截器已提示
-  } finally {
-    submitting.value = false
-  }
-}
-
+/**
+ * 进详情带上 from=review：详情页的「返回」才知道该回审核页，
+ * 否则管理员审到一半返回会掉到图片管理列表，得重新点进来找那批待办。
+ */
 function goDetail(record: ImageVO) {
-  router.push(`/image/detail/${record.id}`)
+  router.push({ path: `/image/detail/${record.id}`, query: { from: 'review' } })
 }
 
 function onImgError(record: ImageVO, event: Event) {

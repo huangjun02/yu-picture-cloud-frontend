@@ -40,6 +40,7 @@
 
     <a-table
       row-key="id"
+      table-layout="fixed"
       :columns="columns"
       :data-source="records"
       :loading="loading"
@@ -76,6 +77,8 @@
         <template v-else-if="column.dataIndex === 'action'">
           <a-space>
             <a-button type="link" size="small" @click="goDetail(record)">详情</a-button>
+            <!-- 管理员就地审核：看完缩略图和名称就能判，不必跳去审核页再找一遍 -->
+            <a-button v-if="isAdmin" type="link" size="small" @click="openReview(record)">审核</a-button>
             <a-button type="link" size="small" @click="openEdit(record)">编辑</a-button>
             <a-popconfirm
               title="确定删除这张图片？存储上的文件会一起清掉"
@@ -90,6 +93,9 @@
       </template>
     </a-table>
   </a-card>
+
+  <!-- 审核弹窗：与详情页/审核工作台共用同一个组件 -->
+  <ImageReviewModal v-model:open="reviewOpen" :image="reviewTarget" @reviewed="load" />
 
   <a-modal
     v-model:open="editOpen"
@@ -120,6 +126,9 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { message, type TableProps } from 'ant-design-vue'
 
+import ImageReviewModal from '@/components/ImageReviewModal.vue'
+
+import { useUserStore } from '@/stores/user'
 import {
   deleteImage,
   listImageByPage,
@@ -130,6 +139,10 @@ import {
 } from '@/api/image'
 
 const router = useRouter()
+const userStore = useUserStore()
+
+/** 管理员才看得到审核入口（权威校验在后端 /image/review，这里只管「要不要显示」） */
+const isAdmin = computed(() => userStore.loginUser?.userRole === 'admin')
 
 const loading = ref(false)
 const records = ref<ImageVO[]>([])
@@ -168,17 +181,23 @@ const tagOptions = computed(() => {
   return [...tags].map((t) => ({ label: t, value: t }))
 })
 
-const columns: TableProps['columns'] = [
+/**
+ * 列宽一律显式给出（配 table-layout="fixed"）：
+ * auto 布局下「名称/简介」会按内容的最小宽度撑开，列宽之和恒定大于容器，
+ * 结果不管屏幕多宽底部都挂着一条横向滚动条 —— 显式列宽 + fixed 布局才收得住。
+ * 操作列宽度按角色算：管理员多一个「审核」按钮（4 个链接比 3 个宽）。
+ */
+const columns = computed<TableProps['columns']>(() => [
   { title: '图片', dataIndex: 'url', width: 100 },
-  { title: '名称', dataIndex: 'name', ellipsis: true },
-  { title: '简介', dataIndex: 'introduction', ellipsis: true },
+  { title: '名称', dataIndex: 'name', ellipsis: true, width: 180 },
+  { title: '简介', dataIndex: 'introduction', ellipsis: true, width: 220 },
   { title: '格式', dataIndex: 'picFormat', width: 80 },
   { title: '大小', dataIndex: 'picSize', width: 100 },
   { title: '尺寸', dataIndex: 'dimension', width: 110 },
-  { title: '审核状态', dataIndex: 'reviewStatus', width: 100 },
-  { title: '创建时间', dataIndex: 'createTime', width: 170 },
-  { title: '操作', dataIndex: 'action', width: 140 },
-]
+  { title: '审核状态', dataIndex: 'reviewStatus', width: 90 },
+  { title: '创建时间', dataIndex: 'createTime', width: 160 },
+  { title: '操作', dataIndex: 'action', width: isAdmin.value ? 190 : 150 },
+])
 
 /**
  * 每页条数上限锁在 20：后端 PageRequest 里 MAX_PAGE_SIZE = 20，
@@ -279,6 +298,15 @@ async function handleDelete(record: ImageVO) {
 // ---- 详情：跳独立详情页（原弹窗已由 ImageDetailView 取代）----
 function goDetail(record: ImageVO) {
   router.push(`/image/detail/${record.id}`)
+}
+
+// ---- 审核（管理员）----
+const reviewOpen = ref(false)
+const reviewTarget = ref<ImageVO | null>(null)
+
+function openReview(record: ImageVO) {
+  reviewTarget.value = record
+  reviewOpen.value = true
 }
 
 /** 审核状态三态文案 + 颜色，列表里扫一眼就知道哪些还没审 */
