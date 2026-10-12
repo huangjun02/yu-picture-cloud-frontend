@@ -70,9 +70,12 @@
         <template v-else-if="column.dataIndex === 'createTime'">
           {{ formatTime(record.createTime) }}
         </template>
+        <template v-else-if="column.dataIndex === 'reviewStatus'">
+          <a-tag :color="reviewMeta(record.reviewStatus).color">{{ reviewMeta(record.reviewStatus).text }}</a-tag>
+        </template>
         <template v-else-if="column.dataIndex === 'action'">
           <a-space>
-            <a-button type="link" size="small" @click="openDetail(record)">详情</a-button>
+            <a-button type="link" size="small" @click="goDetail(record)">详情</a-button>
             <a-button type="link" size="small" @click="openEdit(record)">编辑</a-button>
             <a-popconfirm
               title="确定删除这张图片？存储上的文件会一起清掉"
@@ -110,60 +113,23 @@
     </a-form>
   </a-modal>
 
-  <!--
-    详情弹窗：大图（优先 webp 副本，省带宽；失败回退原图）+ 元信息。
-    列表页的 a-image 预览已经能看大图，这个弹窗多的是「元信息 + 下载」——
-    有独立价值的不是"再看一遍图"，是"看着图拿到它的属性和文件"。
-  -->
-  <a-modal v-model:open="detailOpen" :title="detailRecord?.name ?? '图片详情'" :footer="null" width="720px">
-    <template v-if="detailRecord">
-      <a-image
-        :src="detailRecord.webpUrl ?? detailRecord.url"
-        :fallback="detailRecord.url"
-        style="width: 100%; border-radius: 8px"
-      />
-      <a-descriptions :column="2" size="small" style="margin-top: 16px">
-        <a-descriptions-item label="简介" :span="2">{{ detailRecord.introduction || '-' }}</a-descriptions-item>
-        <a-descriptions-item label="分类">{{ detailRecord.category || '-' }}</a-descriptions-item>
-        <a-descriptions-item label="格式">{{ detailRecord.picFormat }}</a-descriptions-item>
-        <a-descriptions-item label="大小">{{ formatSize(detailRecord.picSize) }}</a-descriptions-item>
-        <a-descriptions-item label="尺寸">
-          {{ detailRecord.picWidth && detailRecord.picHeight ? `${detailRecord.picWidth} × ${detailRecord.picHeight}` : '-' }}
-        </a-descriptions-item>
-        <a-descriptions-item label="创建时间" :span="2">{{ formatTime(detailRecord.createTime) }}</a-descriptions-item>
-        <a-descriptions-item label="标签" :span="2">
-          <a-space wrap>
-            <a-tag v-for="tag in parsedTags(detailRecord.tags)" :key="tag" color="blue">{{ tag }}</a-tag>
-            <span v-if="parsedTags(detailRecord.tags).length === 0">-</span>
-          </a-space>
-        </a-descriptions-item>
-      </a-descriptions>
-      <div style="margin-top: 16px; text-align: right">
-        <a-button
-          type="primary"
-          :loading="downloadingId === detailRecord.id"
-          @click="handleDownload(detailRecord)"
-        >
-          下载原图
-        </a-button>
-      </div>
-    </template>
-  </a-modal>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { message, type TableProps } from 'ant-design-vue'
 
 import {
   deleteImage,
-  downloadImage,
   listImageByPage,
   updateImage,
   type ImageQueryRequest,
   type ImageUpdateRequest,
   type ImageVO,
 } from '@/api/image'
+
+const router = useRouter()
 
 const loading = ref(false)
 const records = ref<ImageVO[]>([])
@@ -209,6 +175,7 @@ const columns: TableProps['columns'] = [
   { title: '格式', dataIndex: 'picFormat', width: 80 },
   { title: '大小', dataIndex: 'picSize', width: 100 },
   { title: '尺寸', dataIndex: 'dimension', width: 110 },
+  { title: '审核状态', dataIndex: 'reviewStatus', width: 100 },
   { title: '创建时间', dataIndex: 'createTime', width: 170 },
   { title: '操作', dataIndex: 'action', width: 140 },
 ]
@@ -309,15 +276,21 @@ async function handleDelete(record: ImageVO) {
   }
 }
 
-// ---- 详情 + 下载 ----
-const detailOpen = ref(false)
-const detailRecord = ref<ImageVO | null>(null)
-/** 正在下载的图片 id（按钮 loading 用；「哪一张在下」而不是「是否在下」） */
-const downloadingId = ref<string | null>(null)
+// ---- 详情：跳独立详情页（原弹窗已由 ImageDetailView 取代）----
+function goDetail(record: ImageVO) {
+  router.push(`/image/detail/${record.id}`)
+}
 
-function openDetail(record: ImageVO) {
-  detailRecord.value = record
-  detailOpen.value = true
+/** 审核状态三态文案 + 颜色，列表里扫一眼就知道哪些还没审 */
+function reviewMeta(status?: number) {
+  switch (status) {
+    case 1:
+      return { text: '已通过', color: 'success' }
+    case 2:
+      return { text: '已拒绝', color: 'error' }
+    default:
+      return { text: '待审核', color: 'warning' }
+  }
 }
 
 /** tags 存的是 JSON 数组字符串，展示时拆开；脏数据当没有标签处理 */
@@ -328,16 +301,6 @@ function parsedTags(tags?: string): string[] {
     return Array.isArray(arr) ? arr.map(String).filter(Boolean) : []
   } catch {
     return []
-  }
-}
-
-async function handleDownload(record: ImageVO) {
-  if (!record.id || downloadingId.value) return
-  downloadingId.value = record.id
-  try {
-    await downloadImage(record.id, (record.name ?? '图片') + '.' + (record.picFormat ?? 'jpg'))
-  } finally {
-    downloadingId.value = null
   }
 }
 

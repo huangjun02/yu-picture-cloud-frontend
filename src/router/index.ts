@@ -1,7 +1,9 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import BasicLayout from '@/layouts/BasicLayout.vue'
 import HealthView from '@/views/HealthView.vue'
+import ImageDetailView from '@/views/image/ImageDetailView.vue'
 import ImageManageView from '@/views/image/ImageManageView.vue'
+import ImageReviewView from '@/views/image/ImageReviewView.vue'
 import ImageUploadView from '@/views/image/ImageUploadView.vue'
 import UserLoginView from '@/views/user/UserLoginView.vue'
 import UserRegisterView from '@/views/user/UserRegisterView.vue'
@@ -34,6 +36,20 @@ const router = createRouter({
           path: 'image/upload',
           name: 'image-upload',
           component: ImageUploadView,
+        },
+        {
+          // 图片详情独立成页（参考「左预览 + 右信息」范式）——
+          // 弹窗放大图在小屏上上下都挤，独立页面才有空间把属性摊开讲清楚
+          path: 'image/detail/:id',
+          name: 'image-detail',
+          component: ImageDetailView,
+        },
+        {
+          // 审核工作台：只给管理员（meta 标记 + 下面的守卫双重把关）
+          path: 'image/review',
+          name: 'image-review',
+          component: ImageReviewView,
+          meta: { requiresAdmin: true },
         },
         {
           // 联调排查页：不进侧边菜单，需要时直接访问 /health
@@ -72,6 +88,11 @@ router.beforeEach(async (to) => {
   }
   if (isPublic && userStore.loginUser) {
     // 已登录就别再看登录/注册页
+    return { path: '/' }
+  }
+  // 管理员页面的前端拦截：后端才是权威（reviewImage 自己会校验角色），
+  // 这里挡的是「普通用户手敲 /image/review 进去看到一堆报错弹窗」的体验问题
+  if (to.meta.requiresAdmin && userStore.loginUser?.userRole !== 'admin') {
     return { path: '/' }
   }
   return true

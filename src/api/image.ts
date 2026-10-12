@@ -16,6 +16,7 @@ export type ImageVO = components['schemas']['ImageVO']
 export type PageImageVO = components['schemas']['PageImageVO']
 export type ImageQueryRequest = components['schemas']['ImageQueryRequest']
 export type ImageUpdateRequest = components['schemas']['ImageUpdateRequest']
+export type ImageReviewRequest = components['schemas']['ImageReviewRequest']
 
 /**
  * 上传图片：multipart/form-data。
@@ -99,4 +100,30 @@ export async function downloadImage(id: string, fallbackName: string): Promise<v
  */
 export function deleteImage(id: string): Promise<boolean> {
   return post<boolean>(`/image/delete?id=${encodeURIComponent(id)}`)
+}
+
+/**
+ * URL 传图：服务器替用户拉远端图片（本人）。
+ *
+ * ⚠️ 两个坑都在这条 URL 上：
+ * ① fileUrl 走 URL 参数（后端 @RequestParam），不是请求体；
+ * ② 图片地址本身常带 `?token=xxx&expire=...`，必须 encodeURIComponent ——
+ *    不编码的话 `&` 会被当成外层查询串的字段分隔符，后端只收到半截地址。
+ */
+export function uploadImageByUrl(fileUrl: string, name?: string): Promise<ImageVO> {
+  const params = new URLSearchParams({ fileUrl })
+  if (name) {
+    params.set('name', name)
+  }
+  return post<ImageVO>(`/image/upload/url?${params.toString()}`)
+}
+
+/**
+ * 审核图片（管理员）。
+ *
+ * 结论 1-通过 / 2-拒绝；**拒绝必须带 reviewMessage**（后端强制，没理由的拒绝会被 40000 打回）。
+ * 三字段一体提交，所以走请求体（与 update 同款语义）。
+ */
+export function reviewImage(params: ImageReviewRequest): Promise<boolean> {
+  return post<boolean>('/image/review', params)
 }

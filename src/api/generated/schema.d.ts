@@ -157,6 +157,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/image/upload/url": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** URL 传图（拉取远端图片，本人） */
+        post: operations["uploadImageByUrl"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/image/update": {
         parameters: {
             query?: never;
@@ -168,6 +185,23 @@ export interface paths {
         put?: never;
         /** 编辑图片（本人或管理员） */
         post: operations["updateImage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/image/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 审核图片（管理员） */
+        post: operations["reviewImage"];
         delete?: never;
         options?: never;
         head?: never;
@@ -202,6 +236,23 @@ export interface paths {
         put?: never;
         /** 查询图片详情（本人或管理员） */
         post: operations["getImageById"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/image/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 下载图片文件（本人或管理员） */
+        post: operations["downloadImage"];
         delete?: never;
         options?: never;
         head?: never;
@@ -380,6 +431,9 @@ export interface components {
         };
         ImageVO: {
             id?: string;
+            /** Format: int32 */
+            reviewStatus?: number;
+            reviewMessage?: string;
             url?: string;
             thumbnailUrl?: string;
             webpUrl?: string;
@@ -407,6 +461,12 @@ export interface components {
             category?: string;
             tags?: string;
         };
+        ImageReviewRequest: {
+            id?: string;
+            /** Format: int32 */
+            reviewStatus?: number;
+            reviewMessage?: string;
+        };
         ImageQueryRequest: {
             /** Format: int32 */
             pageNum?: number;
@@ -419,6 +479,8 @@ export interface components {
             tags?: string;
             userId?: string;
             picFormat?: string;
+            /** Format: int32 */
+            reviewStatus?: number;
         };
         BaseResponsePageImageVO: {
             /** Format: int32 */
@@ -669,6 +731,29 @@ export interface operations {
             };
         };
     };
+    uploadImageByUrl: {
+        parameters: {
+            query: {
+                fileUrl: string;
+                name?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["BaseResponseImageVO"];
+                };
+            };
+        };
+    };
     updateImage: {
         parameters: {
             query?: never;
@@ -679,6 +764,30 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ImageUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["BaseResponseBoolean"];
+                };
+            };
+        };
+    };
+    reviewImage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImageReviewRequest"];
             };
         };
         responses: {
@@ -735,6 +844,28 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["BaseResponseImageVO"];
+                };
+            };
+        };
+    };
+    downloadImage: {
+        parameters: {
+            query: {
+                id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string;
                 };
             };
         };

@@ -15,6 +15,11 @@
           <template #icon><CloudUploadOutlined /></template>
           <span>上传图片</span>
         </a-menu-item>
+        <!-- 审核工作台只对管理员显示：后端会再校验一次角色，这里只是别让普通用户看见入口 -->
+        <a-menu-item v-if="isAdmin" key="/image/review">
+          <template #icon><AuditOutlined /></template>
+          <span>图片审核</span>
+        </a-menu-item>
       </a-menu>
     </a-layout-sider>
 
@@ -63,6 +68,7 @@ import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import {
+  AuditOutlined,
   CloudUploadOutlined,
   DownOutlined,
   IdcardOutlined,
@@ -81,12 +87,19 @@ const loginUser = computed(() => userStore.loginUser)
 
 // 菜单选中态必须由「当前路由」推导，不能自己存一份状态：
 // 存两份的话，用户用浏览器前进/后退时菜单高亮就会和页面内容对不上。
-const selectedKeys = ref<string[]>([route.path])
+//
+// 详情页是列表的子路径（/image/detail/:id），没有自己的菜单项 ——
+// 高亮回落到「我的图片」，否则进了详情页整条菜单都没选中，像走丢了。
+function menuKeyOf(path: string) {
+  return path.startsWith('/image/detail/') ? '/' : path
+}
+
+const selectedKeys = ref<string[]>([menuKeyOf(route.path)])
 
 watch(
   () => route.path,
   (path) => {
-    selectedKeys.value = [path]
+    selectedKeys.value = [menuKeyOf(path)]
   },
 )
 
