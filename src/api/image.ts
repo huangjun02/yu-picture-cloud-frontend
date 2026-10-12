@@ -1,3 +1,5 @@
+import { message } from 'ant-design-vue'
+
 import { post } from './request'
 import type { components } from '@/api/generated/schema'
 
@@ -48,6 +50,44 @@ export function getImage(id: string): Promise<ImageVO> {
 /** 编辑图片：只有名称 / 简介 / 分类 / 标签能改（多字段 → 请求体） */
 export function updateImage(params: ImageUpdateRequest): Promise<boolean> {
   return post<boolean>('/image/update', params)
+}
+
+/**
+ * 下载图片文件。
+ *
+ * ⚠️ 这个接口是「统一响应」的唯一例外：后端直接回二进制（不走 BaseResponse JSON 包装），
+ * 所以这里必须用原生 fetch 而不是 axios 实例 —— axios 的响应拦截器会尝试解析 JSON，
+ * 二进制体会被搅坏；而且 blob 响应也绕过拦截器的 code 检查逻辑。
+ *
+ * fetch 默认带同源 cookie（credentials: 'same-origin' 是默认值），登录态没问题。
+ */
+export async function downloadImage(id: string, fallbackName: string): Promise<void> {
+  const resp = await fetch(`/api/image/download?id=${encodeURIComponent(id)}`, {
+    credentials: 'same-origin',
+  })
+  if (!resp.ok) {
+    // 二进制接口的错误也是二进制路径 —— 拿不到 JSON 错误信息，给通用提示
+    message.error('下载失败，请稍后重试')
+    return
+  }
+  const blob = await resp.blob()
+  // 文件名优先取响应头（后端已按 RFC 5987 编码中文），拿不到再用图片名称兜底
+  const disposition = resp.headers.get('Content-Disposition') ?? ''
+  const starMatch = disposition.match(/filename\*=(?:UTF-8'')?([^;]+)/i)
+  const plainMatch = disposition.match(/filename="?([^";]+)"?/i)
+  let fileName = fallbackName
+  if (starMatch && starMatch[1]) {
+    fileName = decodeURIComponent(starMatch[1])
+  } else if (plainMatch && plainMatch[1]) {
+    fileName = plainMatch[1]
+  }
+  // 触发保存：a[download] 的 download 属性对同源 blob URL 有效（跨域才失效，这里正是同源）
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = fileName
+  a.click()
+  URL.revokeObjectURL(url)
 }
 
 /**

@@ -72,6 +72,7 @@
         </template>
         <template v-else-if="column.dataIndex === 'action'">
           <a-space>
+            <a-button type="link" size="small" @click="openDetail(record)">详情</a-button>
             <a-button type="link" size="small" @click="openEdit(record)">编辑</a-button>
             <a-popconfirm
               title="确定删除这张图片？存储上的文件会一起清掉"
@@ -108,6 +109,46 @@
       </a-form-item>
     </a-form>
   </a-modal>
+
+  <!--
+    详情弹窗：大图（优先 webp 副本，省带宽；失败回退原图）+ 元信息。
+    列表页的 a-image 预览已经能看大图，这个弹窗多的是「元信息 + 下载」——
+    有独立价值的不是"再看一遍图"，是"看着图拿到它的属性和文件"。
+  -->
+  <a-modal v-model:open="detailOpen" :title="detailRecord?.name ?? '图片详情'" :footer="null" width="720px">
+    <template v-if="detailRecord">
+      <a-image
+        :src="detailRecord.webpUrl ?? detailRecord.url"
+        :fallback="detailRecord.url"
+        style="width: 100%; border-radius: 8px"
+      />
+      <a-descriptions :column="2" size="small" style="margin-top: 16px">
+        <a-descriptions-item label="简介" :span="2">{{ detailRecord.introduction || '-' }}</a-descriptions-item>
+        <a-descriptions-item label="分类">{{ detailRecord.category || '-' }}</a-descriptions-item>
+        <a-descriptions-item label="格式">{{ detailRecord.picFormat }}</a-descriptions-item>
+        <a-descriptions-item label="大小">{{ formatSize(detailRecord.picSize) }}</a-descriptions-item>
+        <a-descriptions-item label="尺寸">
+          {{ detailRecord.picWidth && detailRecord.picHeight ? `${detailRecord.picWidth} × ${detailRecord.picHeight}` : '-' }}
+        </a-descriptions-item>
+        <a-descriptions-item label="创建时间" :span="2">{{ formatTime(detailRecord.createTime) }}</a-descriptions-item>
+        <a-descriptions-item label="标签" :span="2">
+          <a-space wrap>
+            <a-tag v-for="tag in parsedTags(detailRecord.tags)" :key="tag" color="blue">{{ tag }}</a-tag>
+            <span v-if="parsedTags(detailRecord.tags).length === 0">-</span>
+          </a-space>
+        </a-descriptions-item>
+      </a-descriptions>
+      <div style="margin-top: 16px; text-align: right">
+        <a-button
+          type="primary"
+          :loading="downloadingId === detailRecord.id"
+          @click="handleDownload(detailRecord)"
+        >
+          下载原图
+        </a-button>
+      </div>
+    </template>
+  </a-modal>
 </template>
 
 <script setup lang="ts">
@@ -116,6 +157,7 @@ import { message, type TableProps } from 'ant-design-vue'
 
 import {
   deleteImage,
+  downloadImage,
   listImageByPage,
   updateImage,
   type ImageQueryRequest,
@@ -264,6 +306,38 @@ async function handleDelete(record: ImageVO) {
     await load()
   } catch {
     // 拦截器已提示
+  }
+}
+
+// ---- 详情 + 下载 ----
+const detailOpen = ref(false)
+const detailRecord = ref<ImageVO | null>(null)
+/** 正在下载的图片 id（按钮 loading 用；「哪一张在下」而不是「是否在下」） */
+const downloadingId = ref<string | null>(null)
+
+function openDetail(record: ImageVO) {
+  detailRecord.value = record
+  detailOpen.value = true
+}
+
+/** tags 存的是 JSON 数组字符串，展示时拆开；脏数据当没有标签处理 */
+function parsedTags(tags?: string): string[] {
+  if (!tags) return []
+  try {
+    const arr = JSON.parse(tags)
+    return Array.isArray(arr) ? arr.map(String).filter(Boolean) : []
+  } catch {
+    return []
+  }
+}
+
+async function handleDownload(record: ImageVO) {
+  if (!record.id || downloadingId.value) return
+  downloadingId.value = record.id
+  try {
+    await downloadImage(record.id, (record.name ?? '图片') + '.' + (record.picFormat ?? 'jpg'))
+  } finally {
+    downloadingId.value = null
   }
 }
 

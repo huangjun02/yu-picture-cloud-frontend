@@ -382,6 +382,7 @@ export interface components {
             id?: string;
             url?: string;
             thumbnailUrl?: string;
+            webpUrl?: string;
             name?: string;
             introduction?: string;
             category?: string;
