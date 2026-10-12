@@ -30,7 +30,19 @@
     >
       <template #bodyCell="{ column, record }">
         <template v-if="column.dataIndex === 'url'">
-          <a-image :src="record.url" :width="72" :height="72" style="object-fit: cover" />
+          <!--
+            列表格子里优先用缩略图（后端生成的 200×200 小图，比原图小一个数量级）；
+            缩略图 404（存量旧图没有派生文件）时回退原图 —— onError 里把 src 换掉。
+            点开预览优先 webp 副本（同尺寸更小），没有就用原图。
+          -->
+          <a-image
+            :src="record.thumbnailUrl ?? record.url"
+            :preview="{ src: record.webpUrl ?? record.url }"
+            :width="72"
+            :height="72"
+            style="object-fit: cover"
+            @error="onImgError(record, $event)"
+          />
         </template>
         <template v-else-if="column.dataIndex === 'picSize'">{{ formatSize(record.picSize) }}</template>
         <template v-else-if="column.dataIndex === 'dimension'">
@@ -203,6 +215,19 @@ async function handleDelete(record: ImageVO) {
 }
 
 // ---- 展示格式化 ----
+
+/**
+ * 缩略图 404 兜底（存量旧图没有派生文件）：把 img 的 src 换成原图。
+ * 只对"当前显示的是缩略图"的记录生效，原图挂了就不用再兜（没得退）。
+ * event.target 是原生 img 元素 —— a-image 的 @error 转发的是 img 的事件。
+ */
+function onImgError(record: ImageVO, event: Event) {
+  const img = event.target as HTMLImageElement
+  if (record.thumbnailUrl && record.url && img.src === record.thumbnailUrl) {
+    img.src = record.url
+  }
+}
+
 function formatSize(bytes?: number) {
   if (!bytes) return '-'
   if (bytes < 1024) return `${bytes} B`

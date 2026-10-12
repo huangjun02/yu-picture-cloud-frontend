@@ -149,6 +149,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** 上传图片 */
         post: operations["uploadImage"];
         delete?: never;
         options?: never;
@@ -165,6 +166,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** 编辑图片（本人或管理员） */
         post: operations["updateImage"];
         delete?: never;
         options?: never;
@@ -181,6 +183,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** 分页查询图片（普通用户只返回自己的） */
         post: operations["listImageByPage"];
         delete?: never;
         options?: never;
@@ -197,6 +200,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** 查询图片详情（本人或管理员） */
         post: operations["getImageById"];
         delete?: never;
         options?: never;
@@ -213,6 +217,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** 删除图片（本人或管理员） */
         post: operations["deleteImage"];
         delete?: never;
         options?: never;
@@ -376,6 +381,7 @@ export interface components {
         ImageVO: {
             id?: string;
             url?: string;
+            thumbnailUrl?: string;
             name?: string;
             introduction?: string;
             category?: string;
