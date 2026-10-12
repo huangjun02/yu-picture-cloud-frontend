@@ -483,6 +483,7 @@ export interface components {
             /** Format: double */
             picScale?: number;
             picColor?: string;
+            picPalette?: string;
             picFormat?: string;
             userId?: string;
             /** Format: date-time */

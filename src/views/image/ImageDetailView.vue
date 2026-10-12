@@ -81,6 +81,20 @@
                 {{ record.picColor || '-' }}
               </span>
             </div>
+            <div v-if="palette.length" class="meta-row">
+              <span class="meta-label">调色板</span>
+              <span class="meta-value palette-strip">
+                <span
+                  v-for="(item, index) in palette"
+                  :key="index"
+                  class="palette-chip"
+                  :title="`${COLOR_FAMILY_NAMES[item.family] || item.family} ${item.color} ${item.ratio}%`"
+                >
+                  <span class="palette-swatch" :style="{ backgroundColor: item.color }" />
+                  {{ item.ratio }}%
+                </span>
+              </span>
+            </div>
             <div class="meta-row">
               <span class="meta-label">大小</span>
               <span class="meta-value">{{ formatSize(record.picSize) }}</span>
@@ -219,6 +233,7 @@ import {
 } from '@/api/image'
 import { useUserStore } from '@/stores/user'
 import { formatDateTime } from '@/utils/datetime'
+import { COLOR_FAMILY_NAMES, parsePalette } from '@/utils/palette'
 import { parseTags, stringifyTags } from '@/utils/tags'
 import { PRESET_TAGS, mergeOptions } from '@/constants/filters'
 
@@ -235,6 +250,9 @@ const record = ref<ImageVO | null>(null)
  * 缩略图在这里不能用 —— 详情页要的是清晰度，200×200 的缩略图放大就糊了。
  */
 const displaySrc = computed(() => record.value?.webpUrl ?? record.value?.url ?? '')
+
+/** 调色板（后端存 JSON 字符串，解析逻辑收敛在 utils/palette.ts，脏数据返回空数组） */
+const palette = computed(() => parsePalette(record.value?.picPalette))
 
 const isMine = computed(() => !!record.value?.userId && record.value.userId === userStore.loginUser?.id)
 const authorText = computed(() => {
@@ -541,6 +559,31 @@ onMounted(() => {
   align-items: center;
   gap: 12px;
   font-size: 14px;
+}
+
+/* 调色板色条：每个色块 + 占比，悬浮显示色系与色值。
+   展示的是「这张图由哪些颜色构成」——单主色只说得出面积最大的那一个，
+   而用户找图时想的是「有那个颜色的图」（白底蓝主体的图，蓝也是它的颜色）。 */
+.palette-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.palette-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: rgb(0 0 0 / 65%);
+}
+
+.palette-swatch {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  border: 1px solid rgb(0 0 0 / 15%);
 }
 
 /* 主色展示的小色点（与色值同行，让「#E74C3C」这种值一眼可见） */
