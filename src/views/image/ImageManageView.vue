@@ -136,10 +136,12 @@ import { message, type TableProps } from 'ant-design-vue'
 import ImageReviewModal from '@/components/ImageReviewModal.vue'
 
 import { useUserStore } from '@/stores/user'
+import { PRESET_CATEGORIES, PRESET_TAGS, mergeOptions } from '@/constants/filters'
 import { formatDateTime } from '@/utils/datetime'
 import {
   deleteImage,
   listImageByPage,
+  listImageOptions,
   updateImage,
   type ImageQueryRequest,
   type ImageUpdateRequest,
@@ -180,28 +182,47 @@ const reviewStatusOptions = [
 ]
 
 /**
- * 分类/标签候选项：从当前页数据里现收（不去后端专门拉字典 —— 图库规模小，
- * 「翻几页后选项就全了」比多一个接口实在。数据量大后再换后端字典接口）。
+ * 分类/标签的候选项 = 预设常用值 ∪ 接口给的（已通过图上的）∪ 当前页数据里的。
+ *
+ * <p>三段各自补一个洞：预设让筛选栏一进来就有东西可点；接口给的是"全库都有哪些分类"，
+ * 比只看当前页强（原来翻到第 3 页才出现的分类，在第 1 页选不到）；
+ * 当前页再兜一层，保证「自己这张待审核图上的分类」也能选出来。
  */
-const categoryOptions = computed(() =>
-  [...new Set(records.value.map((r) => r.category).filter(Boolean))].map((c) => ({
-    label: c as string,
-    value: c as string,
-  })),
-)
+const filterOptions = ref<{ categories: string[]; tags: string[] }>({ categories: [], tags: [] })
+
+const categoryOptions = computed(() => {
+  const fromPage = records.value.map((r) => r.category)
+  return mergeOptions(PRESET_CATEGORIES, [...filterOptions.value.categories, ...fromPage]).map((c) => ({
+    label: c,
+    value: c,
+  }))
+})
+
 const tagOptions = computed(() => {
-  const tags = new Set<string>()
+  const fromPage: string[] = []
   for (const r of records.value) {
     if (!r.tags) continue
     try {
       const arr = JSON.parse(r.tags)
-      if (Array.isArray(arr)) arr.forEach((t) => t && tags.add(String(t)))
+      if (Array.isArray(arr)) arr.forEach((t) => t && fromPage.push(String(t)))
     } catch {
       // 单条脏数据不影响整体选项
     }
   }
-  return [...tags].map((t) => ({ label: t, value: t }))
+  return mergeOptions(PRESET_TAGS, [...filterOptions.value.tags, ...fromPage]).map((t) => ({
+    label: t,
+    value: t,
+  }))
 })
+
+async function loadFilterOptions() {
+  try {
+    const data = await listImageOptions()
+    filterOptions.value = { categories: data.categories ?? [], tags: data.tags ?? [] }
+  } catch {
+    // 候选项拿不到不影响列表：预设值仍然在，够用
+  }
+}
 
 /**
  * 列宽一律显式给出（配 table-layout="fixed"）：
@@ -385,5 +406,8 @@ function formatSize(bytes?: number) {
 }
 
 
-onMounted(load)
+onMounted(() => {
+  load()
+  loadFilterOptions()
+})
 </script>

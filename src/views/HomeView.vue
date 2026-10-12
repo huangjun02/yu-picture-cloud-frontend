@@ -20,14 +20,14 @@
       @change="handleCategoryChange"
     >
       <a-tab-pane key="" tab="全部" />
-      <a-tab-pane v-for="category in options.categories" :key="category" :tab="category" />
+      <a-tab-pane v-for="category in categoryOptions" :key="category" :tab="category" />
     </a-tabs>
 
     <!-- 标签：多选（AND 语义由后端保证：同时带这几个标签的才出来） -->
-    <div v-if="options.tags.length" class="tag-row">
+    <div v-if="tagOptions.length" class="tag-row">
       <span class="tag-row-label">标签：</span>
       <a-checkable-tag
-        v-for="tag in options.tags"
+        v-for="tag in tagOptions"
         :key="tag"
         :checked="selectedTags.includes(tag)"
         @change="toggleTag(tag)"
@@ -83,10 +83,11 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { listImageByPage, listImageOptions, type ImageVO } from '@/api/image'
+import { PRESET_CATEGORIES, PRESET_TAGS, mergeOptions } from '@/constants/filters'
 
 /**
  * 主页 = 已通过审核的图片墙（官方流程第 4 条「内容可见性」）。
@@ -104,6 +105,15 @@ const query = reactive({ name: '' })
 const activeCategory = ref('')
 const selectedTags = ref<string[]>([])
 const options = ref<{ categories: string[]; tags: string[] }>({ categories: [], tags: [] })
+
+/**
+ * 筛选栏的候选项 = 预设常用值 ∪ 库里出现过的值。
+ *
+ * <p>只用库里的值，库空着时整条筛选栏就是空白；只用预设值，用户自己填的分类
+ * 又筛不出来。取并集：一进来就有东西可点，填过的也一定在。详见 constants/filters.ts。
+ */
+const categoryOptions = computed(() => mergeOptions(PRESET_CATEGORIES, options.value.categories))
+const tagOptions = computed(() => mergeOptions(PRESET_TAGS, options.value.tags))
 
 const records = ref<ImageVO[]>([])
 const total = ref(0)
