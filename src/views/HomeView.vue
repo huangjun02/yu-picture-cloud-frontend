@@ -36,6 +36,20 @@
       </a-checkable-tag>
     </div>
 
+    <!-- 颜色：单选色板（精确匹配主色 picColor，再点一次取消） -->
+    <div class="tag-row color-row">
+      <span class="tag-row-label">颜色：</span>
+      <button
+        v-for="preset in PRESET_COLORS"
+        :key="preset.value"
+        class="color-swatch"
+        :class="{ active: selectedColor === preset.value }"
+        :title="preset.name"
+        :style="{ backgroundColor: preset.value }"
+        @click="toggleColor(preset.value)"
+      />
+    </div>
+
     <a-spin :spinning="loading">
       <a-empty
         v-if="!records.length && !loading"
@@ -88,6 +102,7 @@ import { useRouter } from 'vue-router'
 
 import { listImageByPage, listImageOptions, type ImageVO } from '@/api/image'
 import { PRESET_CATEGORIES, PRESET_TAGS, mergeOptions } from '@/constants/filters'
+import { PRESET_COLORS } from '@/constants/colors'
 
 /**
  * 主页 = 已通过审核的图片墙（官方流程第 4 条「内容可见性」）。
@@ -104,6 +119,7 @@ const router = useRouter()
 const query = reactive({ name: '' })
 const activeCategory = ref('')
 const selectedTags = ref<string[]>([])
+const selectedColor = ref('')
 const options = ref<{ categories: string[]; tags: string[] }>({ categories: [], tags: [] })
 
 /**
@@ -129,6 +145,8 @@ async function loadImages() {
       category: activeCategory.value || undefined,
       // 后端约定：数组以 JSON 字符串形式传（它按 JSON 解析后逐个匹配，AND 语义）
       tags: selectedTags.value.length ? JSON.stringify(selectedTags.value) : undefined,
+      // 主色筛选：精确匹配（后端归一化大小写），空串不传
+      picColor: selectedColor.value || undefined,
       // 主页钉死「只看已通过」：管理员在主页也该看到跟普通用户一样的图墙，
       // 审核工作台才是管理员看全部数据的地方
       reviewStatus: 1,
@@ -177,6 +195,12 @@ function toggleTag(tag: string) {
   } else {
     selectedTags.value.push(tag)
   }
+  resetAndLoad()
+}
+
+/** 颜色单选：再点同一个色块取消筛选 */
+function toggleColor(value: string) {
+  selectedColor.value = selectedColor.value === value ? '' : value
   resetAndLoad()
 }
 
@@ -246,6 +270,28 @@ onMounted(() => {
   gap: 4px 8px;
   margin-bottom: 16px;
   font-size: 13px;
+}
+
+/* 色板：小圆色块，选中时描边 + 微放大 */
+.color-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--border, #d9d9d9);
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.color-swatch:hover {
+  transform: scale(1.15);
+}
+
+.color-swatch.active {
+  /* 描边用主色而不是跟色块同色（白色/浅色块看不出选中），阴影强化可点感 */
+  box-shadow: 0 0 0 2px #1677ff;
+  border-color: #fff;
+  transform: scale(1.1);
 }
 
 .tag-row-label {

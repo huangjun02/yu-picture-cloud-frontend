@@ -71,6 +71,17 @@
               <span class="meta-value">{{ record.picScale ? record.picScale.toFixed(2) : '-' }}</span>
             </div>
             <div class="meta-row">
+              <span class="meta-label">主色</span>
+              <span class="meta-value">
+                <span
+                  v-if="record.picColor"
+                  class="color-dot"
+                  :style="{ backgroundColor: record.picColor }"
+                />
+                {{ record.picColor || '-' }}
+              </span>
+            </div>
+            <div class="meta-row">
               <span class="meta-label">大小</span>
               <span class="meta-value">{{ formatSize(record.picSize) }}</span>
             </div>
@@ -496,6 +507,17 @@ onMounted(() => {
   align-items: center;
   gap: 12px;
   font-size: 14px;
+}
+
+/* 主色展示的小色点（与色值同行，让「#E74C3C」这种值一眼可见） */
+.color-dot {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid rgb(0 0 0 / 15%);
+  margin-right: 6px;
+  vertical-align: -2px;
 }
 
 .meta-label {

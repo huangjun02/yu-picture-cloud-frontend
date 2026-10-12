@@ -482,6 +482,7 @@ export interface components {
             picHeight?: number;
             /** Format: double */
             picScale?: number;
+            picColor?: string;
             picFormat?: string;
             userId?: string;
             /** Format: date-time */
@@ -523,6 +524,7 @@ export interface components {
             tags?: string;
             userId?: string;
             picFormat?: string;
+            picColor?: string;
             /** Format: int32 */
             reviewStatus?: number;
         };
