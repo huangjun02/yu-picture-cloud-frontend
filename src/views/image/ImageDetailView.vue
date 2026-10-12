@@ -157,7 +157,19 @@
           <a-input v-model:value="editForm.category" :maxlength="50" />
         </a-form-item>
         <a-form-item label="标签">
-          <a-input v-model:value="editForm.tags" placeholder="多个标签用逗号分隔" :maxlength="200" />
+          <!--
+            用 tags 模式选择器而不是文本框：文本框里填「测试」会原样落库成 `测试`
+            （不是 JSON 数组），后端读不出来 —— 表现就是"标签填了，主页标签栏里没有它"。
+            这里既能从候选里挑，也能直接敲新标签，回车添加。
+          -->
+          <a-select
+            v-model:value="editTags"
+            mode="tags"
+            placeholder="选择或输入标签，回车添加"
+            :options="tagOptions"
+            :max-tag-count="8"
+            style="width: 100%"
+          />
         </a-form-item>
       </a-form>
     </a-modal>
@@ -182,12 +194,15 @@ import {
   deleteImage,
   downloadImage,
   getImage,
+  listImageOptions,
   updateImage,
   type ImageUpdateRequest,
   type ImageVO,
 } from '@/api/image'
 import { useUserStore } from '@/stores/user'
 import { formatDateTime } from '@/utils/datetime'
+import { parseTags, stringifyTags } from '@/utils/tags'
+import { PRESET_TAGS, mergeOptions } from '@/constants/filters'
 
 const route = useRoute()
 const router = useRouter()
@@ -211,16 +226,18 @@ const authorText = computed(() => {
   return `用户 ${String(record.value.userId).slice(-6)}`
 })
 
-const tags = computed<string[]>(() => {
-  const raw = record.value?.tags
-  if (!raw) return []
+const tags = computed<string[]>(() => parseTags(record.value?.tags))
+
+/** 编辑弹窗的标签候选：预设 ∪ 库里真实值（理由见 constants/filters.ts） */
+const tagOptions = ref<string[]>([...PRESET_TAGS])
+async function loadTagOptions() {
   try {
-    const arr = JSON.parse(raw)
-    return Array.isArray(arr) ? arr.map(String).filter(Boolean) : []
+    const options = await listImageOptions()
+    tagOptions.value = mergeOptions(PRESET_TAGS, options?.tags ?? [])
   } catch {
-    return []
+    // 拉不到候选不影响编辑：退回预设值（拦截器已提示过）
   }
-})
+}
 
 /** 审核状态的可视映射：三态在页面里都要有自己的颜色，不能只靠文字 */
 const reviewMeta = computed(() => {
@@ -312,6 +329,8 @@ async function handleDownload() {
 const editOpen = ref(false)
 const editSubmitting = ref(false)
 const editForm = reactive<ImageUpdateRequest>({})
+/** 标签在 UI 上是数组，提交时才序列化成后端约定的 JSON 数组字符串 */
+const editTags = ref<string[]>([])
 
 function openEdit() {
   if (!record.value) return
@@ -319,14 +338,14 @@ function openEdit() {
   editForm.name = record.value.name ?? ''
   editForm.introduction = record.value.introduction ?? ''
   editForm.category = record.value.category ?? ''
-  editForm.tags = record.value.tags ?? ''
+  editTags.value = parseTags(record.value.tags)
   editOpen.value = true
 }
 
 async function handleEditSubmit() {
   editSubmitting.value = true
   try {
-    await updateImage({ ...editForm })
+    await updateImage({ ...editForm, tags: stringifyTags(editTags.value) })
     message.success('修改成功')
     editOpen.value = false
     await load()
@@ -359,7 +378,10 @@ function formatSize(bytes?: number) {
 }
 
 
-onMounted(load)
+onMounted(() => {
+  load()
+  loadTagOptions()
+})
 </script>
 
 <style scoped>

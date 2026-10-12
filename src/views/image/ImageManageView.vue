@@ -121,7 +121,19 @@
         <a-input v-model:value="editForm.category" :maxlength="50" />
       </a-form-item>
       <a-form-item label="标签">
-        <a-input v-model:value="editForm.tags" placeholder="多个标签用逗号分隔" :maxlength="200" />
+        <!--
+          用 tags 模式的选择器而不是纯文本框：文本框里填「测试」会原样落库成 `测试`
+          （不是 JSON 数组），后端解析不了 —— 主页标签栏里它就不见了。
+          这里既能从候选里挑，也能直接敲新标签，回车即添加。
+        -->
+        <a-select
+          v-model:value="editTags"
+          mode="tags"
+          placeholder="选择或输入标签，回车添加"
+          :options="tagOptions"
+          :max-tag-count="8"
+          style="width: 100%"
+        />
       </a-form-item>
     </a-form>
   </a-modal>
@@ -137,6 +149,7 @@ import ImageReviewModal from '@/components/ImageReviewModal.vue'
 
 import { useUserStore } from '@/stores/user'
 import { PRESET_CATEGORIES, PRESET_TAGS, mergeOptions } from '@/constants/filters'
+import { parseTags, stringifyTags } from '@/utils/tags'
 import { formatDateTime } from '@/utils/datetime'
 import {
   deleteImage,
@@ -199,16 +212,9 @@ const categoryOptions = computed(() => {
 })
 
 const tagOptions = computed(() => {
-  const fromPage: string[] = []
-  for (const r of records.value) {
-    if (!r.tags) continue
-    try {
-      const arr = JSON.parse(r.tags)
-      if (Array.isArray(arr)) arr.forEach((t) => t && fromPage.push(String(t)))
-    } catch {
-      // 单条脏数据不影响整体选项
-    }
-  }
+  // 用共享的 parseTags（容错版）：库里存在"裸字符串"这种历史脏数据，
+  // 这里再写一次 JSON.parse 的话，脏数据到选项里就断了
+  const fromPage = records.value.flatMap((r) => parseTags(r.tags))
   return mergeOptions(PRESET_TAGS, [...filterOptions.value.tags, ...fromPage]).map((t) => ({
     label: t,
     value: t,
@@ -307,20 +313,22 @@ const handleTableChange: TableProps['onChange'] = (pag) => {
 const editOpen = ref(false)
 const editSubmitting = ref(false)
 const editForm = reactive<ImageUpdateRequest>({})
+/** 标签在 UI 上是数组，提交时才序列化成后端约定的 JSON 数组字符串 */
+const editTags = ref<string[]>([])
 
 function openEdit(record: ImageVO) {
   editForm.id = record.id
   editForm.name = record.name ?? ''
   editForm.introduction = record.introduction ?? ''
   editForm.category = record.category ?? ''
-  editForm.tags = record.tags ?? ''
+  editTags.value = parseTags(record.tags)
   editOpen.value = true
 }
 
 async function handleEditSubmit() {
   editSubmitting.value = true
   try {
-    await updateImage({ ...editForm })
+    await updateImage({ ...editForm, tags: stringifyTags(editTags.value) })
     message.success('修改成功')
     editOpen.value = false
     await load()
