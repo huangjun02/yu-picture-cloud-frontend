@@ -1,14 +1,33 @@
 <template>
   <a-card title="我的图片">
-    <!-- 搜索：目前后端只支持按名称模糊查 -->
+    <!-- 搜索：名称模糊 + 分类精确 + 标签多选（AND 语义） -->
     <a-form layout="inline" :model="query">
       <a-form-item label="图片名称">
         <a-input
           v-model:value="query.name"
           placeholder="输入名称搜索"
           allow-clear
-          style="width: 220px"
+          style="width: 200px"
           @press-enter="handleSearch"
+        />
+      </a-form-item>
+      <a-form-item label="分类">
+        <a-select
+          v-model:value="query.category"
+          placeholder="全部分类"
+          allow-clear
+          style="width: 140px"
+          :options="categoryOptions"
+        />
+      </a-form-item>
+      <a-form-item label="标签">
+        <a-select
+          v-model:value="selectedTags"
+          mode="multiple"
+          placeholder="可多选（同时满足）"
+          allow-clear
+          style="min-width: 220px"
+          :options="tagOptions"
         />
       </a-form-item>
       <a-form-item>
@@ -114,6 +133,33 @@ const query = reactive<ImageQueryRequest>({
   name: '',
 })
 
+/** 标签多选的中间状态：UI 上是数组，发请求时序列化成后端约定的 JSON 数组字符串 */
+const selectedTags = ref<string[]>([])
+
+/**
+ * 分类/标签候选项：从当前页数据里现收（不去后端专门拉字典 —— 图库规模小，
+ * 「翻几页后选项就全了」比多一个接口实在。数据量大后再换后端字典接口）。
+ */
+const categoryOptions = computed(() =>
+  [...new Set(records.value.map((r) => r.category).filter(Boolean))].map((c) => ({
+    label: c as string,
+    value: c as string,
+  })),
+)
+const tagOptions = computed(() => {
+  const tags = new Set<string>()
+  for (const r of records.value) {
+    if (!r.tags) continue
+    try {
+      const arr = JSON.parse(r.tags)
+      if (Array.isArray(arr)) arr.forEach((t) => t && tags.add(String(t)))
+    } catch {
+      // 单条脏数据不影响整体选项
+    }
+  }
+  return [...tags].map((t) => ({ label: t, value: t }))
+})
+
 const columns: TableProps['columns'] = [
   { title: '图片', dataIndex: 'url', width: 100 },
   { title: '名称', dataIndex: 'name', ellipsis: true },
@@ -142,7 +188,12 @@ const pagination = computed(() => ({
 async function load() {
   loading.value = true
   try {
-    const page = await listImageByPage({ ...query })
+    // 标签多选序列化成后端约定的 JSON 数组字符串；没选就不带这个字段
+    const params: ImageQueryRequest = { ...query }
+    if (selectedTags.value.length > 0) {
+      params.tags = JSON.stringify(selectedTags.value)
+    }
+    const page = await listImageByPage(params)
     records.value = page.records ?? []
     total.value = page.total ?? 0
   } catch {
@@ -160,6 +211,8 @@ function handleSearch() {
 
 function handleReset() {
   query.name = ''
+  query.category = undefined
+  selectedTags.value = []
   query.pageNum = 1
   load()
 }
