@@ -293,6 +293,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/image/crawl": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["crawlImages"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/user/get/login": {
         parameters: {
             query?: never;
@@ -536,6 +552,38 @@ export interface components {
              * @deprecated
              */
             pages?: number;
+        };
+        ImageCrawlRequest: {
+            query?: string;
+            /** Format: int32 */
+            count?: number;
+            category?: string;
+            tags?: string;
+        };
+        BaseResponseImageCrawlResultVO: {
+            /** Format: int32 */
+            code?: number;
+            data?: components["schemas"]["ImageCrawlResultVO"];
+            message?: string;
+        };
+        ImageCrawlResultVO: {
+            query?: string;
+            /** Format: int32 */
+            candidateCount?: number;
+            /** Format: int32 */
+            successCount?: number;
+            /** Format: int32 */
+            skipCount?: number;
+            /** Format: int32 */
+            failCount?: number;
+            successIds?: string[];
+            items?: components["schemas"]["Item"][];
+        };
+        Item: {
+            name?: string;
+            sourceUrl?: string;
+            status?: string;
+            reason?: string;
         };
     };
     responses: never;
@@ -936,6 +984,30 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["BaseResponseBoolean"];
+                };
+            };
+        };
+    };
+    crawlImages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImageCrawlRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["BaseResponseImageCrawlResultVO"];
                 };
             };
         };

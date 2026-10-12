@@ -1,4 +1,4 @@
-import axios, { type AxiosInstance } from 'axios'
+import axios, { type AxiosInstance, type AxiosRequestConfig } from 'axios'
 import { message } from 'ant-design-vue'
 
 import type { BaseResponse } from '@/types/api'
@@ -32,8 +32,12 @@ export function get<T>(url: string, params?: object): Promise<T> {
   return request.get(url, { params }) as unknown as Promise<T>
 }
 
-export function post<T>(url: string, data?: object): Promise<T> {
-  return request.post(url, data) as unknown as Promise<T>
+/**
+ * config 透传：个别接口需要单独的超时（例如批量抓图要下载并处理 20 张图，
+ * 十几秒很正常；默认 15s 会让前端先超时，而后端其实还在干活 —— 那种"假失败"最难查）。
+ */
+export function post<T>(url: string, data?: object, config?: AxiosRequestConfig): Promise<T> {
+  return request.post(url, data, config) as unknown as Promise<T>
 }
 
 export default request

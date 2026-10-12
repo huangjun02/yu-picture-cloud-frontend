@@ -18,6 +18,8 @@ export type ImageQueryRequest = components['schemas']['ImageQueryRequest']
 export type ImageUpdateRequest = components['schemas']['ImageUpdateRequest']
 export type ImageReviewRequest = components['schemas']['ImageReviewRequest']
 export type ImageOptionsVO = components['schemas']['ImageOptionsVO']
+export type ImageCrawlRequest = components['schemas']['ImageCrawlRequest']
+export type ImageCrawlResultVO = components['schemas']['ImageCrawlResultVO']
 
 /**
  * 上传图片：multipart/form-data。
@@ -147,4 +149,15 @@ export function listImageOptions(): Promise<ImageOptionsVO> {
  */
 export function reviewImage(params: ImageReviewRequest): Promise<boolean> {
   return post<boolean>('/image/review', params)
+}
+
+/**
+ * 批量抓图（管理员）：按关键词从开放许可图库（Openverse）检索并入库。
+ *
+ * 为什么单独放宽超时：一次最多 20 张，每张都要「下载 → 压缩 → 生成缩略图 → 传 COS」，
+ * 十几二十秒是正常的。用默认 15s 会出现「前端报超时、后端其实成功」的假失败——
+ * 用户看到失败又点一次，结果抓了两遍。
+ */
+export function crawlImages(data: ImageCrawlRequest): Promise<ImageCrawlResultVO> {
+  return post('/image/crawl', data, { timeout: 180000 })
 }
