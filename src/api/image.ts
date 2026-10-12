@@ -181,3 +181,18 @@ export function shareImage(id: string): Promise<string> {
 export function getSharedImage(shareCode: string): Promise<ImageVO> {
   return post<ImageVO>(`/image/share/view?shareCode=${encodeURIComponent(shareCode)}`)
 }
+
+/**
+ * 以图搜图：上传一张图，返回图库里最相似的图（按相似度从高到低，最多 20 张）。
+ *
+ * ⚠️ 两个要点：
+ * ① 走 multipart（同 uploadImage），不手动设 Content-Type —— axios 遇到 FormData 会
+ *    自动带上 boundary，手写反而会丢；
+ * ② 单独放宽超时：后端要把候选图逐个算汉明距离（可能几千张），比普通接口慢。
+ *    用默认 15s 会出现「前端报超时、后端其实算完了」的假失败，用户再点一次白跑一趟。
+ */
+export function searchSimilarImage(file: File): Promise<ImageVO[]> {
+  const formData = new FormData()
+  formData.append('file', file)
+  return post<ImageVO[]>('/image/search/similar', formData, { timeout: 60000 })
+}

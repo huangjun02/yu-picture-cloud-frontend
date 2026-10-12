@@ -1,6 +1,6 @@
 <template>
   <div class="home">
-    <!-- 搜索区：居中的大搜索框（参考官方主页的第一屏主视觉） -->
+    <!-- 搜索区：居中的大搜索框（参考官方主页的第一屏主视觉）+ 以图搜图入口 -->
     <div class="search-wrap">
       <a-input-search
         v-model:value="query.name"
@@ -11,6 +11,23 @@
         allow-clear
         @search="handleSearch"
       />
+      <a-upload
+        class="similar-upload"
+        accept="image/jpeg,image/png,image/webp"
+        :show-upload-list="false"
+        :before-upload="handleSimilarSearch"
+      >
+        <a-button size="large" :loading="similarLoading">
+          <template #icon><PictureOutlined /></template>
+          以图搜图
+        </a-button>
+      </a-upload>
+    </div>
+
+    <!-- 以图搜图结果提示：结果不参与分页，给一个明确的「退出」口 -->
+    <div v-if="similarMode" class="similar-banner">
+      <span>以图搜图结果：{{ records.length }} 张（最像的排在最前）</span>
+      <a-button type="link" size="small" @click="clearSimilarSearch">清除，回到浏览</a-button>
     </div>
 
     <!-- 分类：横向 tab。候选项来自后端（数据里出现过哪些分类），不是写死的清单 -->
@@ -36,7 +53,7 @@
       </a-checkable-tag>
     </div>
 
-    <!-- 颜色：单选色板（精确匹配主色 picColor，再点一次取消） -->
+    <!-- 颜色：单选色板（按色系筛选，再点一次取消） -->
     <div class="tag-row color-row">
       <span class="tag-row-label">颜色：</span>
       <button
@@ -50,11 +67,11 @@
       />
     </div>
 
-    <a-spin :spinning="loading">
+    <a-spin :spinning="loading || similarLoading">
       <a-empty
-        v-if="!records.length && !loading"
+        v-if="!records.length && !loading && !similarLoading"
         class="empty"
-        description="没有找到符合条件的图片"
+        :description="similarMode ? '图库里没有找到相似的图片' : '没有找到符合条件的图片'"
       />
 
       <div v-else class="grid">
@@ -83,7 +100,8 @@
       </div>
     </a-spin>
 
-    <div class="pager">
+    <!-- 分页只在浏览态出现：以图搜图的结果是一次性的相似度排序，没有页码可翻 -->
+    <div v-if="!similarMode" class="pager">
       <a-pagination
         v-model:current="pageNum"
         :total="total"
@@ -99,8 +117,10 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { message, type UploadProps } from 'ant-design-vue'
+import { PictureOutlined } from '@ant-design/icons-vue'
 
-import { listImageByPage, listImageOptions, type ImageVO } from '@/api/image'
+import { listImageByPage, listImageOptions, searchSimilarImage, type ImageVO } from '@/api/image'
 import { PRESET_CATEGORIES, PRESET_TAGS, mergeOptions } from '@/constants/filters'
 import { PRESET_COLORS } from '@/constants/colors'
 
@@ -136,6 +156,10 @@ const total = ref(0)
 const pageNum = ref(1)
 const pageSize = ref(20)
 const loading = ref(false)
+
+/** 是否处于「以图搜图结果」态：此时列表是相似度排序的结果，不分页、不受筛选影响 */
+const similarMode = ref(false)
+const similarLoading = ref(false)
 
 async function loadImages() {
   loading.value = true
@@ -176,6 +200,9 @@ async function loadOptions() {
 
 /** 换筛选条件必须回到第 1 页 —— 停在第 5 页筛完只剩 2 条，用户会以为"筛出来是空的" */
 function resetAndLoad() {
+  // 任何一次筛选 / 搜索都退出「以图搜图结果」态：否则用户点了分类，看到的是
+  // 「筛选条件 + 相似度结果」这种谁也不是的状态
+  similarMode.value = false
   pageNum.value = 1
   return loadImages()
 }
@@ -201,6 +228,37 @@ function toggleTag(tag: string) {
 /** 颜色单选：再点同一个色块取消筛选 */
 function toggleColor(value: string) {
   selectedColor.value = selectedColor.value === value ? '' : value
+  resetAndLoad()
+}
+
+/**
+ * 以图搜图：选一张本地图 → 调接口 → 用返回结果替换图墙。
+ *
+ * ⚠️ `beforeUpload` 必须返回 false：返回 false 才会「只触发这个回调、不上传」——
+ * antd 的 a-upload 默认会自己发一个 POST 到 action，不拦住就会多一个无用请求。
+ */
+const handleSimilarSearch: UploadProps['beforeUpload'] = async (file) => {
+  similarLoading.value = true
+  try {
+    const list = await searchSimilarImage(file as File)
+    similarMode.value = true
+    pageNum.value = 1
+    records.value = list
+    total.value = list.length
+    if (!list.length) {
+      message.info('图库里没有找到相似的图片')
+    }
+  } catch {
+    // 拦截器已统一提示
+  } finally {
+    similarLoading.value = false
+  }
+  return false
+}
+
+/** 退出以图搜图态，回到正常浏览（分页 + 筛选都恢复） */
+function clearSimilarSearch() {
+  similarMode.value = false
   resetAndLoad()
 }
 
@@ -250,12 +308,31 @@ onMounted(() => {
 
 .search-wrap {
   display: flex;
+  align-items: center;
   justify-content: center;
   padding: 8px 0 20px;
 }
 
 .search-input {
   max-width: 640px;
+}
+
+/* 以图搜图按钮紧贴搜索框（按钮本体由 a-upload 包着，间距给在外层） */
+.similar-upload {
+  margin-left: 8px;
+}
+
+/* 以图搜图结果提示条 */
+.similar-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: #f0f5ff;
+  font-size: 13px;
+  color: rgb(0 0 0 / 65%);
 }
 
 /* tab 栏去掉下划线感的边距，跟标签行贴紧一点 */
@@ -301,8 +378,8 @@ onMounted(() => {
 /* 自适应网格：窗口越宽每行放越多，卡片宽度保持在一个舒适区间 */
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 20px;
 }
 
 .card {
