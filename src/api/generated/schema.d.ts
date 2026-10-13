@@ -191,6 +191,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/image/share": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 生成分享短链（本人或管理员） */
+        post: operations["shareImage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/image/share/view": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 按分享码查看图片（免登录） */
+        post: operations["getSharedImage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/image/search/similar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 以图搜图（登录用户） */
+        post: operations["searchSimilarImage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/image/review": {
         parameters: {
             query?: never;
@@ -303,6 +354,57 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["crawlImages"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/image/batch/update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 批量编辑图片分类/追加标签（本人或管理员，部分成功） */
+        post: operations["batchUpdateImages"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/image/batch/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 批量审核图片（管理员，部分成功） */
+        post: operations["batchReviewImages"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/image/batch/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 批量删除图片（本人或管理员，部分成功） */
+        post: operations["batchDeleteImages"];
         delete?: never;
         options?: never;
         head?: never;
@@ -496,6 +598,12 @@ export interface components {
             category?: string;
             tags?: string;
         };
+        BaseResponseListImageVO: {
+            /** Format: int32 */
+            code?: number;
+            data?: components["schemas"]["ImageVO"][];
+            message?: string;
+        };
         ImageReviewRequest: {
             id?: string;
             /** Format: int32 */
@@ -587,6 +695,38 @@ export interface components {
             sourceUrl?: string;
             status?: string;
             reason?: string;
+        };
+        ImageBatchUpdateRequest: {
+            imageIds?: string[];
+            category?: string;
+            appendTags?: string[];
+        };
+        BaseResponseImageBatchResultVO: {
+            /** Format: int32 */
+            code?: number;
+            data?: components["schemas"]["ImageBatchResultVO"];
+            message?: string;
+        };
+        FailItem: {
+            imageId?: string;
+            reason?: string;
+        };
+        ImageBatchResultVO: {
+            /** Format: int32 */
+            successCount?: number;
+            /** Format: int32 */
+            failCount?: number;
+            failures?: components["schemas"]["FailItem"][];
+        };
+        ImageBatchReviewRequest: {
+            imageIds?: string[];
+            /** Format: int32 */
+            reviewStatus?: number;
+            reviewMessage?: string;
+            resetReviewParams?: boolean;
+        };
+        ImageBatchDeleteRequest: {
+            imageIds?: string[];
         };
     };
     responses: never;
@@ -857,6 +997,77 @@ export interface operations {
             };
         };
     };
+    shareImage: {
+        parameters: {
+            query: {
+                id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["BaseResponseString"];
+                };
+            };
+        };
+    };
+    getSharedImage: {
+        parameters: {
+            query: {
+                shareCode: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["BaseResponseImageVO"];
+                };
+            };
+        };
+    };
+    searchSimilarImage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["BaseResponseListImageVO"];
+                };
+            };
+        };
+    };
     reviewImage: {
         parameters: {
             query?: never;
@@ -1011,6 +1222,78 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["BaseResponseImageCrawlResultVO"];
+                };
+            };
+        };
+    };
+    batchUpdateImages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImageBatchUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["BaseResponseImageBatchResultVO"];
+                };
+            };
+        };
+    };
+    batchReviewImages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImageBatchReviewRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["BaseResponseImageBatchResultVO"];
+                };
+            };
+        };
+    };
+    batchDeleteImages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImageBatchDeleteRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["BaseResponseImageBatchResultVO"];
                 };
             };
         };

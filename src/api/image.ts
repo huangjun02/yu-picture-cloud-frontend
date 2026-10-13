@@ -20,6 +20,10 @@ export type ImageReviewRequest = components['schemas']['ImageReviewRequest']
 export type ImageOptionsVO = components['schemas']['ImageOptionsVO']
 export type ImageCrawlRequest = components['schemas']['ImageCrawlRequest']
 export type ImageCrawlResultVO = components['schemas']['ImageCrawlResultVO']
+export type ImageBatchDeleteRequest = components['schemas']['ImageBatchDeleteRequest']
+export type ImageBatchUpdateRequest = components['schemas']['ImageBatchUpdateRequest']
+export type ImageBatchReviewRequest = components['schemas']['ImageBatchReviewRequest']
+export type ImageBatchResultVO = components['schemas']['ImageBatchResultVO']
 
 /**
  * 上传图片：multipart/form-data。
@@ -195,4 +199,55 @@ export function searchSimilarImage(file: File): Promise<ImageVO[]> {
   const formData = new FormData()
   formData.append('file', file)
   return post<ImageVO[]>('/image/search/similar', formData, { timeout: 60000 })
+}
+
+// ==================== 批量操作（部分成功语义） ====================
+
+/**
+ * 把批量结果翻译成用户提示：全成 / 部分失败 / 全败三种口径，
+ * 失败明细里有原因的直接展示（「图片不存在」「无权操作他人的图片」）。
+ * 返回 true 表示至少有一条成功（调用方据此决定要不要刷新列表）。
+ */
+export function notifyBatchResult(result: ImageBatchResultVO, action: string): boolean {
+  const successCount = result.successCount ?? 0
+  const failCount = result.failCount ?? 0
+  const failures = result.failures ?? []
+  if (failCount === 0) {
+    message.success(`${action}成功（${successCount} 张）`)
+    return successCount > 0
+  }
+  const firstReason = failures[0]?.reason ?? ''
+  const detail = failCount <= 2 ? `：${failures.map((f) => f.reason).join('；')}` : ''
+  message.warning(`${action}完成：成功 ${successCount} 张、失败 ${failCount} 张${detail || `（如 ${firstReason}）`}`, 5)
+  return successCount > 0
+}
+
+/**
+ * 批量删除图片（本人或管理员）。
+ *
+ * 部分成功语义：一条失败（不存在 / 越权）不中断整批，失败明细在 `failures` 里。
+ * 单次上限 100 条（后端 ImageService.BATCH_MAX_SIZE），超限整批 40000。
+ */
+export function batchDeleteImages(params: ImageBatchDeleteRequest): Promise<ImageBatchResultVO> {
+  return post<ImageBatchResultVO>('/image/batch/delete', params)
+}
+
+/**
+ * 批量编辑图片分类 / 追加标签（本人或管理员）。
+ *
+ * category 是「设置」（覆盖），appendTags 是「追加」（并入现有标签去重）——
+ * 批量覆盖标签会清掉逐张打的标签，所以追加才是这里的安全语义。
+ */
+export function batchUpdateImages(params: ImageBatchUpdateRequest): Promise<ImageBatchResultVO> {
+  return post<ImageBatchResultVO>('/image/batch/update', params)
+}
+
+/**
+ * 批量审核图片（管理员）。
+ *
+ * 拒绝必填原因的校验在进循环之前整批完成（后端 40000），
+ * 状态机与单条审核完全一致（拒绝后可批量改判通过）。
+ */
+export function batchReviewImages(params: ImageBatchReviewRequest): Promise<ImageBatchResultVO> {
+  return post<ImageBatchResultVO>('/image/batch/review', params)
 }

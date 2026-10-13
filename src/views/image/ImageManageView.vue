@@ -45,9 +45,28 @@
       </a-form-item>
     </a-form>
 
+    <!--
+      批量操作条：有勾选才出现（v-if），平时不占地方。
+      Popconfirm 二次确认带数量 —— 批量删除清的是存储上的文件，误触代价高。
+    -->
+    <a-space v-if="selectedIds.length > 0" style="margin-top: 16px">
+      <span>已选 {{ selectedIds.length }} 张</span>
+      <a-popconfirm
+        :title="`确定删除选中的 ${selectedIds.length} 张图片？存储上的文件会一并清除`"
+        ok-text="删除"
+        cancel-text="取消"
+        @confirm="handleBatchDelete"
+      >
+        <a-button danger>批量删除</a-button>
+      </a-popconfirm>
+      <a-button @click="openBatchEdit">批量改分类/标签</a-button>
+      <a-button type="link" size="small" @click="clearSelection">取消选择</a-button>
+    </a-space>
+
     <a-table
       row-key="id"
       table-layout="fixed"
+      :row-selection="rowSelection"
       :columns="columns"
       :data-source="records"
       :loading="loading"
@@ -82,7 +101,7 @@
           <a-tag :color="reviewMeta(record.reviewStatus).color">{{ reviewMeta(record.reviewStatus).text }}</a-tag>
         </template>
         <template v-else-if="column.dataIndex === 'action'">
-          <a-space>
+          <a-space :size="0" wrap>
             <a-button type="link" size="small" @click="goDetail(record)">详情</a-button>
             <!-- 管理员就地审核：看完缩略图和名称就能判，不必跳去审核页再找一遍 -->
             <a-button v-if="isAdmin" type="link" size="small" @click="openReview(record)">审核</a-button>
@@ -138,6 +157,34 @@
     </a-form>
   </a-modal>
 
+  <!-- 批量编辑弹窗：分类是「设置」（覆盖），标签是「追加」（并入去重），语义在标题里写清 -->
+  <a-modal
+    v-model:open="batchEditOpen"
+    :title="`批量编辑（已选 ${selectedIds.length} 张）`"
+    :confirm-loading="batchEditSubmitting"
+    @ok="handleBatchEditSubmit"
+  >
+    <a-form layout="vertical">
+      <a-form-item label="分类（留空 = 不改）">
+        <a-select
+          v-model:value="batchEditCategory"
+          placeholder="选择目标分类"
+          allow-clear
+          :options="categoryOptions"
+        />
+      </a-form-item>
+      <a-form-item label="追加标签（并入每张图已有的标签，不会清掉原有标签）">
+        <a-select
+          v-model:value="batchEditTags"
+          mode="tags"
+          placeholder="选择或输入标签，回车添加"
+          :options="tagOptions"
+          :max-tag-count="8"
+        />
+      </a-form-item>
+    </a-form>
+  </a-modal>
+
 </template>
 
 <script setup lang="ts">
@@ -152,9 +199,12 @@ import { PRESET_CATEGORIES, PRESET_TAGS, mergeOptions } from '@/constants/filter
 import { parseTags, stringifyTags } from '@/utils/tags'
 import { formatDateTime } from '@/utils/datetime'
 import {
+  batchDeleteImages,
+  batchUpdateImages,
   deleteImage,
   listImageByPage,
   listImageOptions,
+  notifyBatchResult,
   updateImage,
   type ImageQueryRequest,
   type ImageUpdateRequest,
@@ -234,17 +284,22 @@ async function loadFilterOptions() {
  * 列宽一律显式给出（配 table-layout="fixed"）：
  * auto 布局下「名称/简介」会按内容的最小宽度撑开，列宽之和恒定大于容器，
  * 结果不管屏幕多宽底部都挂着一条横向滚动条 —— 显式列宽 + fixed 布局才收得住。
- * 操作列宽度按角色算：管理员多一个「审核」按钮（4 个链接比 3 个宽）。
+ *
+ * ⚠️ 开了 row-selection 后表格会多出一列勾选框（约 32~60px），fixed 布局下
+ * 表格总宽仍是 100%，勾选列的开销由所有列按比例分摊 —— 操作列按钮最多、
+ * 最容易被压到裁掉「删除」。所以操作列宽度按真实按钮宽度给（含 buffer），
+ * 再从可压缩的「简介」列（有 ellipsis）把这份预算扣回来，列宽总和不变。
+ * 操作列的 a-space 另加 wrap：极端窄窗口下按钮换行兜底，而不是被静默裁掉。
  */
 const columns = computed<TableProps['columns']>(() => [
-  { title: '图片', dataIndex: 'url', width: 100 },
-  { title: '名称', dataIndex: 'name', ellipsis: true, width: 180 },
-  { title: '简介', dataIndex: 'introduction', ellipsis: true, width: 220 },
-  { title: '格式', dataIndex: 'picFormat', width: 80 },
-  { title: '大小', dataIndex: 'picSize', width: 100 },
-  { title: '尺寸', dataIndex: 'dimension', width: 110 },
-  { title: '审核状态', dataIndex: 'reviewStatus', width: 90 },
-  { title: '创建时间', dataIndex: 'createTime', width: 160 },
+  { title: '图片', dataIndex: 'url', width: 80 },
+  { title: '名称', dataIndex: 'name', ellipsis: true, width: 150 },
+  { title: '简介', dataIndex: 'introduction', ellipsis: true, width: 140 },
+  { title: '格式', dataIndex: 'picFormat', width: 70 },
+  { title: '大小', dataIndex: 'picSize', width: 90 },
+  { title: '尺寸', dataIndex: 'dimension', width: 100 },
+  { title: '状态', dataIndex: 'reviewStatus', width: 80 },
+  { title: '创建时间', dataIndex: 'createTime', width: 150 },
   { title: '操作', dataIndex: 'action', width: isAdmin.value ? 190 : 150 },
 ])
 
@@ -291,6 +346,7 @@ async function load() {
 
 function handleSearch() {
   query.pageNum = 1
+  clearSelection()
   load()
 }
 
@@ -300,12 +356,15 @@ function handleReset() {
   selectedTags.value = []
   reviewStatusFilter.value = -1
   query.pageNum = 1
+  clearSelection()
   load()
 }
 
 const handleTableChange: TableProps['onChange'] = (pag) => {
   query.pageNum = pag.current ?? 1
   query.pageSize = pag.pageSize ?? 10
+  // 翻页清空勾选：不做跨页记忆（selectedIds 注释里有理由）
+  clearSelection()
   load()
 }
 
@@ -352,6 +411,75 @@ async function handleDelete(record: ImageVO) {
     await load()
   } catch {
     // 拦截器已提示
+  }
+}
+
+// ---- 批量操作（部分成功语义） ----
+
+/** 选中的图片 id（跨页不保留：筛选/翻页语义一变，旧勾选对应的可能是另一批图，容易误操作） */
+const selectedIds = ref<string[]>([])
+
+/**
+ * 不做跨页记忆是有意的：翻页后 selectedIds 里残留的 id 对用户已不可见，
+ * 「批量删除」会删掉眼前看不见的图 —— 比多勾一次省的功夫危险得多。
+ */
+const rowSelection = computed(() => ({
+  selectedRowKeys: selectedIds.value,
+  onChange: (keys: (string | number)[]) => {
+    selectedIds.value = keys.map(String)
+  },
+}))
+
+function clearSelection() {
+  selectedIds.value = []
+}
+
+async function handleBatchDelete() {
+  if (selectedIds.value.length === 0) return
+  try {
+    const result = await batchDeleteImages({ imageIds: selectedIds.value })
+    if (notifyBatchResult(result, '删除')) {
+      await load()
+    }
+    clearSelection()
+  } catch {
+    // 拦截器已提示（空列表 / 超限等整批错误）
+  }
+}
+
+// ---- 批量编辑（分类「设置」+ 标签「追加」）----
+const batchEditOpen = ref(false)
+const batchEditSubmitting = ref(false)
+const batchEditCategory = ref<string | undefined>(undefined)
+const batchEditTags = ref<string[]>([])
+
+function openBatchEdit() {
+  batchEditCategory.value = undefined
+  batchEditTags.value = []
+  batchEditOpen.value = true
+}
+
+async function handleBatchEditSubmit() {
+  if (!batchEditCategory.value && batchEditTags.value.length === 0) {
+    message.warning('请填写要修改的分类或要追加的标签')
+    return
+  }
+  batchEditSubmitting.value = true
+  try {
+    const result = await batchUpdateImages({
+      imageIds: selectedIds.value,
+      ...(batchEditCategory.value ? { category: batchEditCategory.value } : {}),
+      ...(batchEditTags.value.length > 0 ? { appendTags: batchEditTags.value } : {}),
+    })
+    if (notifyBatchResult(result, '编辑')) {
+      batchEditOpen.value = false
+      await load()
+    }
+    clearSelection()
+  } catch {
+    // 拦截器已提示
+  } finally {
+    batchEditSubmitting.value = false
   }
 }
 

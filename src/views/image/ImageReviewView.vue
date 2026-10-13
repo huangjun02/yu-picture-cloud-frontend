@@ -21,9 +21,18 @@
       <a-radio-button :value="-1">全部</a-radio-button>
     </a-radio-group>
 
+    <!-- 批量审核条：有勾选才出现。拒绝必然要填原因，走弹窗 -->
+    <a-space v-if="selectedIds.length > 0" style="margin-top: 16px">
+      <span>已选 {{ selectedIds.length }} 张</span>
+      <a-button type="primary" @click="handleBatchPass">批量通过</a-button>
+      <a-button danger @click="batchRejectOpen = true">批量拒绝</a-button>
+      <a-button type="link" size="small" @click="clearSelection">取消选择</a-button>
+    </a-space>
+
     <a-table
       row-key="id"
       table-layout="fixed"
+      :row-selection="rowSelection"
       :columns="columns"
       :data-source="records"
       :loading="loading"
@@ -79,6 +88,20 @@
 
   <!-- 审核弹窗：与列表页/详情页共用同一个组件（拒绝必填原因的规则只有一份） -->
   <ImageReviewModal v-model:open="reviewOpen" :image="reviewTarget" @reviewed="load" />
+
+  <!-- 批量拒绝弹窗：整批共用一条原因 -->
+  <a-modal
+    v-model:open="batchRejectOpen"
+    :title="`批量拒绝（已选 ${selectedIds.length} 张）`"
+    :confirm-loading="batchSubmitting"
+    @ok="handleBatchReject"
+  >
+    <a-form layout="vertical">
+      <a-form-item label="拒绝原因（整批共用，必填）" required>
+        <a-textarea v-model:value="batchRejectMessage" :rows="3" :maxlength="200" placeholder="例如：图片模糊 / 内容不符合收录规范" />
+      </a-form-item>
+    </a-form>
+  </a-modal>
 </template>
 
 <script setup lang="ts">
@@ -87,7 +110,14 @@ import { useRouter } from 'vue-router'
 import { message, type TableProps } from 'ant-design-vue'
 import { ReloadOutlined } from '@ant-design/icons-vue'
 
-import { listImageByPage, reviewImage, type ImageQueryRequest, type ImageVO } from '@/api/image'
+import {
+  batchReviewImages,
+  listImageByPage,
+  notifyBatchResult,
+  reviewImage,
+  type ImageQueryRequest,
+  type ImageVO,
+} from '@/api/image'
 import { formatDateTime } from '@/utils/datetime'
 import ImageReviewModal from '@/components/ImageReviewModal.vue'
 
@@ -108,13 +138,13 @@ const query = reactive<ImageQueryRequest>({ pageNum: 1, pageSize: 10, reviewStat
  * 底部就永远挂着一条横向滚动条（用 1400/1920 两种视口都实测到过）。
  */
 const columns: TableProps['columns'] = [
-  { title: '图片', dataIndex: 'url', width: 100 },
-  { title: '名称', dataIndex: 'name', ellipsis: true, width: 180 },
-  { title: '分类', dataIndex: 'category', width: 100, ellipsis: true },
-  { title: '大小', dataIndex: 'picSize', width: 100 },
-  { title: '上传时间', dataIndex: 'createTime', width: 160 },
-  { title: '审核状态', dataIndex: 'reviewStatus', width: 90 },
-  { title: '审核意见', dataIndex: 'reviewMessage', ellipsis: true, width: 200 },
+  { title: '图片', dataIndex: 'url', width: 80 },
+  { title: '名称', dataIndex: 'name', ellipsis: true, width: 160 },
+  { title: '分类', dataIndex: 'category', width: 80, ellipsis: true },
+  { title: '大小', dataIndex: 'picSize', width: 90 },
+  { title: '上传时间', dataIndex: 'createTime', width: 150 },
+  { title: '状态', dataIndex: 'reviewStatus', width: 80 },
+  { title: '审核意见', dataIndex: 'reviewMessage', ellipsis: true, width: 160 },
   { title: '操作', dataIndex: 'action', width: 150 },
 ]
 
@@ -149,13 +179,76 @@ async function load() {
 
 function handleSearch() {
   query.pageNum = 1
+  clearSelection()
   load()
 }
 
 const handleTableChange: TableProps['onChange'] = (pag) => {
   query.pageNum = pag.current ?? 1
   query.pageSize = pag.pageSize ?? 10
+  // 翻页清空勾选：不做跨页记忆 —— 旧勾选对应的图已不在眼前，批量审核容易误判
+  clearSelection()
   load()
+}
+
+// ---- 批量审核（部分成功语义） ----
+
+const selectedIds = ref<string[]>([])
+const batchSubmitting = ref(false)
+const batchRejectOpen = ref(false)
+const batchRejectMessage = ref('')
+
+const rowSelection = computed(() => ({
+  selectedRowKeys: selectedIds.value,
+  onChange: (keys: (string | number)[]) => {
+    selectedIds.value = keys.map(String)
+  },
+}))
+
+function clearSelection() {
+  selectedIds.value = []
+}
+
+/** 批量通过一键直发（与单条「通过」同款：批处理场景不必弹窗确认） */
+async function handleBatchPass() {
+  if (selectedIds.value.length === 0) return
+  batchSubmitting.value = true
+  try {
+    const result = await batchReviewImages({ imageIds: selectedIds.value, reviewStatus: 1 })
+    if (notifyBatchResult(result, '审核')) {
+      await load()
+    }
+    clearSelection()
+  } catch {
+    // 拦截器已提示
+  } finally {
+    batchSubmitting.value = false
+  }
+}
+
+/** 批量拒绝：原因整批共用，必填（后端进循环前整批校验，这里先拦一道省一次往返） */
+async function handleBatchReject() {
+  if (!batchRejectMessage.value.trim()) {
+    message.warning('请填写拒绝原因')
+    return
+  }
+  batchSubmitting.value = true
+  try {
+    const result = await batchReviewImages({
+      imageIds: selectedIds.value,
+      reviewStatus: 2,
+      reviewMessage: batchRejectMessage.value.trim(),
+    })
+    if (notifyBatchResult(result, '审核')) {
+      batchRejectOpen.value = false
+      await load()
+    }
+    clearSelection()
+  } catch {
+    // 拦截器已提示
+  } finally {
+    batchSubmitting.value = false
+  }
 }
 
 function statusMeta(status?: number) {
